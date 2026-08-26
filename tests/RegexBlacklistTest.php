@@ -108,6 +108,30 @@ class RegexBlacklistTest extends TestCase {
         $this->assertNotNull($result, 'Should return entry for invalid regex (fail-safe)');
     }
 
+    public function testPatternContainingSlashMatches(): void {
+        $entry = $this->createMockEntry(
+            'Interesting article',
+            'Read more at https://ads.example.com/promo'
+        );
+
+        $extension = $this->createMockExtension(['global_patterns' => 'https?://ads\\.example\\.com']);
+        $result = $extension->filterEntryOnImport($entry);
+
+        $this->assertNull($result, 'Pattern containing literal slashes should still match content');
+    }
+
+    public function testHandleConfigureActionSavesPatterns(): void {
+        Minz_Request::_setTestParams(['global_patterns' => "sponsor\nadvertise"]);
+        $extension = $this->createMockExtension([]);
+
+        $extension->handleConfigureAction();
+
+        $entry = $this->createMockEntry('sponsored content', '');
+        $this->assertNull($extension->filterEntryOnImport($entry), 'Saved patterns should be applied on the next check');
+
+        Minz_Request::_resetTest();
+    }
+
     private function createMockEntry(string $title, string $content): FreshRSS_Entry {
         $entry = new FreshRSS_Entry();
         $entry->_title($title);
@@ -120,7 +144,7 @@ class RegexBlacklistTest extends TestCase {
     private function createMockExtension(array $config): RegexBlacklistExtension {
         $extension = new RegexBlacklistExtension();
         foreach ($config as $key => $value) {
-            $extension->setConfig($key, $value);
+            $extension->testSetUserConfiguration($key, $value);
         }
         return $extension;
     }

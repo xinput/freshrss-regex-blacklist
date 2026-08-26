@@ -57,28 +57,39 @@ if (!class_exists('FreshRSS_Entry')) {
     }
 }
 
-// Mock Minz_Extension
+// Mock Minz_Extension — mirrors the real lib/Minz/Extension.php configuration API
+// (getUserConfigurationString/Int/Bool + protected setUserConfigurationValue).
+// The real setter is `final protected`, so it can't be called from outside the
+// class hierarchy; testSetUserConfiguration() is a test-only public helper that
+// seeds the same backing array directly.
 if (!class_exists('Minz_Extension')) {
     class Minz_Extension {
-        protected $config = [];
-        protected $posted = [];
+        /** @var array<string,mixed> */
+        protected array $user_configuration = [];
 
-        protected function registerHook($hookType, $method) {}
+        protected function registerHook($hookType, $method): void {}
 
-        protected function getConfig(string $key, $default = null) {
-            return $this->config[$key] ?? $default;
+        final public function getUserConfigurationString(string $key): ?string {
+            $value = $this->user_configuration[$key] ?? null;
+            return is_string($value) ? $value : null;
         }
 
-        protected function setConfig(string $key, $value): void {
-            $this->config[$key] = $value;
+        final public function getUserConfigurationInt(string $key): ?int {
+            $value = $this->user_configuration[$key] ?? null;
+            return is_numeric($value) ? (int) $value : null;
         }
 
-        protected function getPost(string $key, $default = null) {
-            return $this->posted[$key] ?? $default;
+        final public function getUserConfigurationBool(string $key): ?bool {
+            $value = $this->user_configuration[$key] ?? null;
+            return is_bool($value) ? $value : null;
         }
 
-        protected function isPost(): bool {
-            return !empty($this->posted);
+        protected function setUserConfigurationValue(string $key, mixed $value = null): void {
+            if ($value === null) {
+                unset($this->user_configuration[$key]);
+            } else {
+                $this->user_configuration[$key] = $value;
+            }
         }
 
         public function getName(): string {
@@ -87,6 +98,11 @@ if (!class_exists('Minz_Extension')) {
 
         public function getDescription(): string {
             return 'Prevent articles from being imported based on regex patterns';
+        }
+
+        /** Test-only: seeds configuration without going through the protected production setter. */
+        public function testSetUserConfiguration(string $key, mixed $value): void {
+            $this->user_configuration[$key] = $value;
         }
     }
 }
@@ -98,10 +114,42 @@ if (!class_exists('Minz_HookType')) {
     }
 }
 
-// Mock logging function
-if (!function_exists('_log')) {
-    function _log(string $level, string $message): void {
-        // Mock implementation
+// Mock Minz_Log (real logging API — the extension used to call a nonexistent
+// global _log() function, which is not part of FreshRSS)
+if (!class_exists('Minz_Log')) {
+    class Minz_Log {
+        public static function debug(string $msg): void {}
+        public static function notice(string $msg): void {}
+        public static function warning(string $msg): void {}
+        public static function error(string $msg): void {}
+    }
+}
+
+// Mock Minz_Request — only the subset handleConfigureAction() needs
+if (!class_exists('Minz_Request')) {
+    class Minz_Request {
+        /** @var array<string,mixed> */
+        private static array $params = [];
+        private static bool $isPostFlag = false;
+
+        /** @param array<string,mixed> $params */
+        public static function _setTestParams(array $params, bool $isPost = true): void {
+            self::$params = $params;
+            self::$isPostFlag = $isPost;
+        }
+
+        public static function _resetTest(): void {
+            self::$params = [];
+            self::$isPostFlag = false;
+        }
+
+        public static function isPost(): bool {
+            return self::$isPostFlag;
+        }
+
+        public static function paramString(string $key, bool $plaintext = false): string {
+            return (string) (self::$params[$key] ?? '');
+        }
     }
 }
 

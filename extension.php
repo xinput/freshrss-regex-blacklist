@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 /**
  * Regex Blacklist Extension for FreshRSS
- * 
+ *
  * Prevents articles from being imported based on regex pattern matching.
  * Patterns are matched against the article title and content.
  * Articles matching any pattern are blocked from import (return null).
- * 
+ *
  * @package FreshRSS
  * @subpackage Extensions
  * @license AGPL-3.0-or-later
  */
-class RegexBlacklistExtension extends Minz_Extension {
+final class RegexBlacklistExtension extends Minz_Extension {
 
-    const GLOBAL_CONFIG_KEY = 'global_patterns';
-    const STATS_CONFIG_KEY = 'stats';
-    const MAX_MATCH_LENGTH = 10000;
+    private const CONFIG_KEY = 'global_patterns';
+    private const STATS_KEY = 'stats';
+    private const MAX_MATCH_LENGTH = 10000;
 
     /**
      * Initialize the extension
@@ -25,14 +25,14 @@ class RegexBlacklistExtension extends Minz_Extension {
     public function init(): void {
         $this->registerHook(
             Minz_HookType::EntryBeforeInsert,
-            'filterEntryOnImport'
+            [$this, 'filterEntryOnImport']
         );
     }
 
     /**
      * Hook handler for EntryBeforeInsert
-     * 
-     * @param FreshRSS_Entry $entry The entry to evaluate
+     *
+     * @param FreshRSS_Entry|null $entry The entry to evaluate
      * @return FreshRSS_Entry|null The entry if allowed, null to block
      */
     public function filterEntryOnImport(?FreshRSS_Entry $entry): ?FreshRSS_Entry {
@@ -41,38 +41,41 @@ class RegexBlacklistExtension extends Minz_Extension {
         }
 
         try {
-            $globalPatterns = $this->getPatterns(self::GLOBAL_CONFIG_KEY);
-            if ($this->matchesPatterns($entry, $globalPatterns)) {
-                $this->logFilter($entry, 'global');
-                $this->updateStats('global');
+            $patterns = $this->getPatterns();
+            if ($this->matchesPatterns($entry, $patterns)) {
+                $this->updateStats();
                 return null;
             }
 
             return $entry;
 
         } catch (Exception $e) {
-            _log('error', '[RegexBlacklist] Exception during filtering: ' . $e->getMessage());
+            Minz_Log::error('[RegexBlacklist] Exception during filtering: ' . $e->getMessage());
             return $entry;
         }
     }
 
     /**
      * Get patterns from configuration
+     *
+     * @return string[]
      */
-    private function getPatterns(string $configKey): array {
-        $patternsStr = $this->getConfig($configKey, '');
-        if (empty($patternsStr)) {
+    private function getPatterns(): array {
+        $patternsStr = $this->getUserConfigurationString(self::CONFIG_KEY) ?? '';
+        if ($patternsStr === '') {
             return [];
         }
 
         $patterns = array_map('trim', explode("\n", $patternsStr));
         return array_filter($patterns, static function (string $p): bool {
-            return !empty($p);
+            return $p !== '';
         });
     }
 
     /**
      * Check if entry matches any pattern
+     *
+     * @param string[] $patterns
      */
     private function matchesPatterns(FreshRSS_Entry $entry, array $patterns): bool {
         if (empty($patterns)) {
@@ -101,7 +104,7 @@ class RegexBlacklistExtension extends Minz_Extension {
         $contentResult = @preg_match($regex, $content);
 
         if ($titleResult === false || $contentResult === false) {
-            _log('warn', '[RegexBlacklist] Invalid regex pattern: ' . $pattern);
+            Minz_Log::warning('[RegexBlacklist] Invalid regex pattern: ' . $pattern);
             return false;
         }
 
@@ -109,40 +112,30 @@ class RegexBlacklistExtension extends Minz_Extension {
     }
 
     /**
-     * Log filtered article (debug only)
-     */
-    private function logFilter(FreshRSS_Entry $entry, string $source): void {
-        if (defined('FRESHRSS_ENV') && FRESHRSS_ENV === 'development') {
-            _log('debug', '[RegexBlacklist] Blocked: "' . $entry->getTitle() . '" from ' . $source);
-        }
-    }
-
-    /**
      * Update statistics
      */
-    private function updateStats(string $source): void {
-        $stats = $this->getConfig(self::STATS_CONFIG_KEY, '{}');
-        $statsArray = json_decode($stats, true) ?? [];
-        
-        if (!isset($statsArray[$source])) {
-            $statsArray[$source] = 0;
+    private function updateStats(): void {
+        $stats = $this->getUserConfigurationString(self::STATS_KEY) ?? '{}';
+        $statsArray = json_decode($stats, true);
+        if (!is_array($statsArray)) {
+            $statsArray = [];
         }
-        
-        $statsArray[$source]++;
-        $this->setConfig(self::STATS_CONFIG_KEY, json_encode($statsArray));
+
+        $statsArray['global'] = (int) ($statsArray['global'] ?? 0) + 1;
+        $this->setUserConfigurationValue(self::STATS_KEY, json_encode($statsArray));
     }
 
     /**
      * Handle configuration form submission
      */
     public function handleConfigureAction(): void {
-        if ($this->isPost()) {
-            $globalPatterns = $this->getPost('global_patterns', '');
-            if ($globalPatterns !== $this->getConfig(self::GLOBAL_CONFIG_KEY, '')) {
-                $this->setConfig(self::STATS_CONFIG_KEY, '{}');
+        if (Minz_Request::isPost()) {
+            $patterns = trim(Minz_Request::paramString(self::CONFIG_KEY, plaintext: true));
+            if ($patterns !== ($this->getUserConfigurationString(self::CONFIG_KEY) ?? '')) {
+                $this->setUserConfigurationValue(self::STATS_KEY, '{}');
             }
-            $this->setConfig(self::GLOBAL_CONFIG_KEY, $globalPatterns);
-            _log('info', '[RegexBlacklist] Configuration updated');
+            $this->setUserConfigurationValue(self::CONFIG_KEY, $patterns);
+            Minz_Log::notice('[RegexBlacklist] Configuration updated');
         }
     }
 }
