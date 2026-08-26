@@ -127,4 +127,23 @@
 			runTest(event.target.closest('.regex-blacklist-rule'));
 		}
 	});
+
+	// The multi-select isn't itself a form field (no name= attribute) — its
+	// selection is mirrored into a hidden comma-separated input on every
+	// change, because Minz_Request::paramArray() only supports two levels
+	// of array nesting and can't carry a per-rule array of feed ids.
+	document.addEventListener('change', function (event) {
+		if (!event.target.classList.contains('regex-blacklist-feed-select')) {
+			return;
+		}
+		var ruleCard = event.target.closest('.regex-blacklist-rule');
+		var hiddenInput = ruleCard ? ruleCard.querySelector('.regex-blacklist-feed-ids') : null;
+		if (!hiddenInput) {
+			return;
+		}
+		var selected = Array.prototype.slice.call(event.target.selectedOptions).map(function (opt) {
+			return opt.value;
+		});
+		hiddenInput.value = selected.join(',');
+	});
 })();

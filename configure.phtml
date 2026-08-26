@@ -26,7 +26,7 @@
 		$name = htmlspecialchars((string) ($rule['name'] ?? ''), ENT_COMPAT, 'UTF-8');
 		$pattern = htmlspecialchars((string) ($rule['pattern'] ?? ''), ENT_COMPAT, 'UTF-8');
 		$matchField = (string) ($rule['match_field'] ?? 'both');
-		$feedId = (int) ($rule['feed_id'] ?? 0);
+		$feedIds = array_map('intval', (array) ($rule['feed_ids'] ?? []));
 		$enabled = (bool) ($rule['enabled'] ?? true);
 		$blockedCount = (int) ($rule['blocked_count'] ?? 0);
 		$idxAttr = htmlspecialchars((string) $index, ENT_COMPAT, 'UTF-8');
@@ -74,15 +74,20 @@
 					</select>
 				</label>
 				<label class="regex-blacklist-scope-field">
-					Applies to Feed
-					<select name="rules[<?= $idxAttr ?>][feed_id]">
-						<option value="0" <?= $feedId === 0 ? 'selected' : '' ?>>All feeds</option>
+					Applies to Feed(s) — leave empty for all feeds
+					<select multiple class="regex-blacklist-feed-select" size="<?= max(3, min(6, count($feeds))) ?>">
 						<?php foreach ($feeds as $feed): ?>
-							<option value="<?= $feed->id() ?>" <?= $feedId === $feed->id() ? 'selected' : '' ?>>
+							<option value="<?= $feed->id() ?>" <?= in_array($feed->id(), $feedIds, true) ? 'selected' : '' ?>>
 								<?= htmlspecialchars($feed->name(), ENT_COMPAT, 'UTF-8') ?>
 							</option>
 						<?php endforeach; ?>
 					</select>
+					<input
+						type="hidden"
+						class="regex-blacklist-feed-ids"
+						name="rules[<?= $idxAttr ?>][feed_ids]"
+						value="<?= htmlspecialchars(implode(',', $feedIds), ENT_COMPAT, 'UTF-8') ?>"
+					/>
 				</label>
 			</div>
 
@@ -132,7 +137,7 @@
 
 	<template id="regexBlacklistRowTemplate">
 		<?php $renderRuleCard(
-			['id' => '', 'name' => '', 'pattern' => '', 'match_field' => 'both', 'feed_id' => 0, 'enabled' => true, 'blocked_count' => 0],
+			['id' => '', 'name' => '', 'pattern' => '', 'match_field' => 'both', 'feed_ids' => [], 'enabled' => true, 'blocked_count' => 0],
 			'__INDEX__',
 			$feeds
 		); ?>

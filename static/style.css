@@ -67,7 +67,13 @@
 .regex-blacklist-scope-row {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: flex-start;
 	gap: 16px;
+}
+
+.regex-blacklist-feed-select {
+	width: 100%;
+	box-sizing: border-box;
 }
 
 .regex-blacklist-scope-field {

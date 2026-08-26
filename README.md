@@ -1,12 +1,12 @@
 # FreshRSS Regex Blacklist Extension
 
-A FreshRSS extension that prevents articles from being imported based on named regex rules, each scoped to a match field and (optionally) a specific feed — similar to TTRSS's filter rules.
+A FreshRSS extension that prevents articles from being imported based on named regex rules, each scoped to a match field and (optionally) one or more specific feeds — similar to TTRSS's filter rules.
 
 ## Features
 
 - **Named rules** — each rule has its own name, pattern, match field, and feed scope
 - **Regex-based filtering** at import time (prevents database bloat)
-- **Per-rule feed scope** — apply to one specific feed, or all feeds
+- **Per-rule feed scope** — apply to one or more specific feeds, or all feeds
 - **Per-rule match field** — Title only, Content only, Title + Content, or Author
 - **Built-in regex tester** — paste sample text and see live match/no-match while editing a rule
 - **Per-rule blocked-count** to monitor which rules are actually firing
@@ -43,7 +43,7 @@ volumes:
    - **Rule Name** — a label to identify it (e.g. "Block sponsored posts")
    - **Regex Pattern(s)** — PHP PCRE syntax, no delimiters, one per line (e.g. `sponsor`); a rule matches if *any* of its lines match
    - **Match** — which field(s) to test the pattern against: Title + Content, Title only, Content only, or Author
-   - **Applies to Feed** — a specific subscribed feed, or "All feeds"
+   - **Applies to Feed(s)** — select one or more subscribed feeds, or leave the selection empty for "all feeds"
    - **Test** — opens an inline tester: paste sample text and see live match/no-match against your pattern
 4. Click **Save Configuration**
 
@@ -71,7 +71,7 @@ clickbait|click-bait
 ## How It Works
 
 1. When FreshRSS refreshes feeds, new articles are intercepted
-2. Rules are checked in order; a rule only applies if it's enabled and its feed scope matches (or it's scoped to "All feeds")
+2. Rules are checked in order; a rule only applies if it's enabled and the article's feed is in its selected feed(s) (or it's scoped to "All feeds")
 3. The rule's match field(s) are tested against its pattern
 4. On the first matching rule, the article is **blocked from import** and that rule's blocked-count is incremented
 5. Matched articles never enter your database

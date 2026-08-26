@@ -122,7 +122,7 @@ class RegexBlacklistTest extends TestCase {
     }
 
     public function testFeedScopeRestrictsToSpecificFeed(): void {
-        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor', feedId: 42)]);
+        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor', feedIds: [42])]);
 
         $entryOnScopedFeed = $this->createMockEntry('sponsored post', '', '', 42);
         $entryOnOtherFeed = $this->createMockEntry('sponsored post', '', '', 7);
@@ -131,12 +131,24 @@ class RegexBlacklistTest extends TestCase {
         $this->assertSame($entryOnOtherFeed, $extension->filterEntryOnImport($entryOnOtherFeed), 'Rule should not apply to a different feed');
     }
 
-    public function testFeedScopeZeroMeansAllFeeds(): void {
-        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor', feedId: 0)]);
+    public function testFeedScopeMultipleFeedsAppliesToAnyOfThem(): void {
+        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor', feedIds: [42, 43])]);
+
+        $entryOnFirstFeed = $this->createMockEntry('sponsored post', '', '', 42);
+        $entryOnSecondFeed = $this->createMockEntry('sponsored post', '', '', 43);
+        $entryOnOtherFeed = $this->createMockEntry('sponsored post', '', '', 7);
+
+        $this->assertNull($extension->filterEntryOnImport($entryOnFirstFeed));
+        $this->assertNull($extension->filterEntryOnImport($entryOnSecondFeed));
+        $this->assertSame($entryOnOtherFeed, $extension->filterEntryOnImport($entryOnOtherFeed));
+    }
+
+    public function testFeedScopeEmptyMeansAllFeeds(): void {
+        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor', feedIds: [])]);
 
         $entry = $this->createMockEntry('sponsored post', '', '', 999);
 
-        $this->assertNull($extension->filterEntryOnImport($entry), 'feed_id 0 should mean "all feeds"');
+        $this->assertNull($extension->filterEntryOnImport($entry), 'An empty feed_ids list should mean "all feeds"');
     }
 
     public function testDisabledRuleNeverBlocks(): void {
@@ -182,7 +194,7 @@ class RegexBlacklistTest extends TestCase {
 
         Minz_Request::_setTestParams([
             'rules' => [
-                0 => ['id' => 'r1', 'name' => 'Renamed', 'pattern' => 'sponsor', 'match_field' => 'both', 'feed_id' => '0', 'enabled' => '1'],
+                0 => ['id' => 'r1', 'name' => 'Renamed', 'pattern' => 'sponsor', 'match_field' => 'both', 'feed_ids' => '', 'enabled' => '1'],
             ],
         ]);
 
@@ -199,8 +211,8 @@ class RegexBlacklistTest extends TestCase {
 
         Minz_Request::_setTestParams([
             'rules' => [
-                0 => ['id' => '', 'name' => 'Empty row from Add Rule', 'pattern' => '', 'match_field' => 'both', 'feed_id' => '0'],
-                1 => ['id' => '', 'name' => 'Real rule', 'pattern' => 'sponsor', 'match_field' => 'both', 'feed_id' => '0', 'enabled' => '1'],
+                0 => ['id' => '', 'name' => 'Empty row from Add Rule', 'pattern' => '', 'match_field' => 'both', 'feed_ids' => ''],
+                1 => ['id' => '', 'name' => 'Real rule', 'pattern' => 'sponsor', 'match_field' => 'both', 'feed_ids' => '', 'enabled' => '1'],
             ],
         ]);
 
@@ -211,8 +223,23 @@ class RegexBlacklistTest extends TestCase {
         $this->assertSame('Real rule', $rules[0]['name']);
     }
 
+    public function testHandleConfigureActionParsesCommaSeparatedFeedIds(): void {
+        $extension = $this->createMockExtension([]);
+
+        Minz_Request::_setTestParams([
+            'rules' => [
+                0 => ['id' => '', 'name' => 'Scoped rule', 'pattern' => 'sponsor', 'match_field' => 'both', 'feed_ids' => '5, 12,7', 'enabled' => '1'],
+            ],
+        ]);
+
+        $extension->handleConfigureAction();
+
+        $rules = json_decode($extension->getUserConfigurationString('rules') ?? '[]', true);
+        $this->assertSame([5, 12, 7], $rules[0]['feed_ids']);
+    }
+
     /**
-     * @param array<string,mixed> $overrides
+     * @param int[] $feedIds
      * @return array<string,mixed>
      */
     private function rule(
@@ -220,7 +247,7 @@ class RegexBlacklistTest extends TestCase {
         string $name = 'Test rule',
         string $pattern = '',
         string $matchField = 'both',
-        int $feedId = 0,
+        array $feedIds = [],
         bool $enabled = true,
         int $blockedCount = 0
     ): array {
@@ -229,7 +256,7 @@ class RegexBlacklistTest extends TestCase {
             'name' => $name,
             'pattern' => $pattern,
             'match_field' => $matchField,
-            'feed_id' => $feedId,
+            'feed_ids' => $feedIds,
             'enabled' => $enabled,
             'blocked_count' => $blockedCount,
         ];

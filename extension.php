@@ -8,9 +8,9 @@ declare(strict_types=1);
  * Prevents articles from being imported based on regex pattern matching.
  * Rules are named, each with one or more patterns (one per line, matched
  * with OR semantics), which entry field(s) to match against (title /
- * content / both / author), and an optional feed scope (a specific feed,
- * or all feeds). The first matching enabled rule blocks the article from
- * import (return null).
+ * content / both / author), and an optional feed scope (one or more
+ * specific feeds, or all feeds). The first matching enabled rule blocks
+ * the article from import (return null).
  *
  * @package FreshRSS
  * @subpackage Extensions
@@ -111,8 +111,8 @@ final class RegexBlacklistExtension extends Minz_Extension {
             return false;
         }
 
-        $feedId = (int) ($rule['feed_id'] ?? 0);
-        if ($feedId !== 0 && $entry->feedId() !== $feedId) {
+        $feedIds = array_map('intval', (array) ($rule['feed_ids'] ?? []));
+        if (!empty($feedIds) && !in_array($entry->feedId(), $feedIds, true)) {
             return false;
         }
 
@@ -152,6 +152,24 @@ final class RegexBlacklistExtension extends Minz_Extension {
         return array_values(array_filter($lines, static function (string $line): bool {
             return $line !== '';
         }));
+    }
+
+    /**
+     * Parses the comma-separated feed id list submitted by the configure
+     * form (see configure.phtml / script.js — a hidden field kept in sync
+     * with a <select multiple>, since Minz_Request::paramArray() only
+     * supports two levels of nesting and can't carry a per-rule array of
+     * feed ids directly).
+     *
+     * @return int[]
+     */
+    private function parseFeedIdsCsv(string $csv): array {
+        $ids = array_map('intval', array_filter(array_map('trim', explode(',', $csv)), static function (string $v): bool {
+            return $v !== '';
+        }));
+        return array_values(array_unique(array_filter($ids, static function (int $id): bool {
+            return $id > 0;
+        })));
     }
 
     /**
@@ -213,7 +231,7 @@ final class RegexBlacklistExtension extends Minz_Extension {
                 'name' => trim((string) ($raw['name'] ?? '')) ?: 'Unnamed rule',
                 'pattern' => $pattern,
                 'match_field' => $matchField,
-                'feed_id' => (int) ($raw['feed_id'] ?? 0),
+                'feed_ids' => $this->parseFeedIdsCsv((string) ($raw['feed_ids'] ?? '')),
                 'enabled' => !empty($raw['enabled']),
                 'blocked_count' => (int) ($existingById[$id]['blocked_count'] ?? 0),
             ];
