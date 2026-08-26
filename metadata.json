@@ -1,7 +1,7 @@
 {
   "name": "Regex Blacklist",
-  "description": "Prevent articles from being imported based on regex pattern matching against title and content",
-  "version": "1.0.0",
+  "description": "Block articles from import using named regex rules, each scoped to a match field (title/content/author) and an optional feed",
+  "version": "2.0.0",
   "entrypoint": "RegexBlacklist",
   "author": "Your Name",
   "license": "AGPL-3.0-or-later",

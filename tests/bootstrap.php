@@ -7,52 +7,47 @@ if (!defined('FRESHRSS_ENV')) {
     define('FRESHRSS_ENV', 'test');
 }
 
-// Mock FreshRSS_Entry if not available
+// Mock FreshRSS_Entry — method names/shape match the real
+// app/Models/Entry.php (title(), content(), author(), feedId()), not the
+// getX() names this extension used to call, which don't exist on the
+// real class.
 if (!class_exists('FreshRSS_Entry')) {
     class FreshRSS_Entry {
-        private $id;
-        private $feedId = 1;
-        private $title = '';
-        private $content = '';
+        private string $title = '';
+        private string $content = '';
+        private string $author = '';
+        private int $feedId = 1;
 
-        public function getTitle(): ?string {
-            return $this->title ?: null;
-        }
-
-        public function _title(string $title = null): ?string {
-            if ($title !== null) {
-                $this->title = $title;
-            }
+        public function title(): string {
             return $this->title;
         }
 
-        public function getContent(): ?string {
-            return $this->content ?: null;
+        public function _title(string $title): void {
+            $this->title = $title;
         }
 
-        public function _content(string $content = null): ?string {
-            if ($content !== null) {
-                $this->content = $content;
-            }
+        public function content(): string {
             return $this->content;
         }
 
-        public function getFeedId(): ?int {
+        public function _content(string $content): void {
+            $this->content = $content;
+        }
+
+        public function author(): string {
+            return $this->author;
+        }
+
+        public function _author(string $author): void {
+            $this->author = $author;
+        }
+
+        public function feedId(): int {
             return $this->feedId;
         }
 
-        public function _feedId(int $feedId = null): ?int {
-            if ($feedId !== null) {
-                $this->feedId = $feedId;
-            }
-            return $this->feedId;
-        }
-
-        public function _id(string $id = null): ?string {
-            if ($id !== null) {
-                $this->id = $id;
-            }
-            return $this->id;
+        public function _feedId(int $feedId): void {
+            $this->feedId = $feedId;
         }
     }
 }
@@ -100,6 +95,10 @@ if (!class_exists('Minz_Extension')) {
             return 'Prevent articles from being imported based on regex patterns';
         }
 
+        public function getFileUrl(string $filename, string $type = '', bool $isStatic = true): string {
+            return '/ext.php?f=RegexBlacklist/static/' . $filename;
+        }
+
         /** Test-only: seeds configuration without going through the protected production setter. */
         public function testSetUserConfiguration(string $key, mixed $value): void {
             $this->user_configuration[$key] = $value;
@@ -125,6 +124,14 @@ if (!class_exists('Minz_Log')) {
     }
 }
 
+// Mock Minz_View (extension init() registers static assets)
+if (!class_exists('Minz_View')) {
+    class Minz_View {
+        public static function appendScript(string $url, bool $cond = false, bool $defer = true, bool $async = true, string $id = ''): void {}
+        public static function appendStyle(string $url, string $media = 'all', bool $cond = false): void {}
+    }
+}
+
 // Mock Minz_Request — only the subset handleConfigureAction() needs
 if (!class_exists('Minz_Request')) {
     class Minz_Request {
@@ -147,8 +154,10 @@ if (!class_exists('Minz_Request')) {
             return self::$isPostFlag;
         }
 
-        public static function paramString(string $key, bool $plaintext = false): string {
-            return (string) (self::$params[$key] ?? '');
+        /** @return array<string|int,mixed> */
+        public static function paramArray(string $key, bool $plaintext = false): array {
+            $value = self::$params[$key] ?? [];
+            return is_array($value) ? $value : [];
         }
     }
 }

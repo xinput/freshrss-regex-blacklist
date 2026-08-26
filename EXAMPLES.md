@@ -1,6 +1,6 @@
 # Regex Pattern Examples
 
-Copy and paste these examples into the FreshRSS Regex Blacklist configuration.
+Paste these into the **Regex Pattern** field of a rule. Each rule has its own pattern, so a block of related patterns below is usually best split into one rule per line (or joined with `|` in a single rule if they should all share one name/scope).
 
 ## Content Filtering
 

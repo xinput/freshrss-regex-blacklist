@@ -1,0 +1,28 @@
+.regex-blacklist-rules-table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.regex-blacklist-rules-table th,
+.regex-blacklist-rules-table td {
+	padding: 4px 8px;
+	vertical-align: top;
+	text-align: left;
+}
+
+.regex-blacklist-tester-row td {
+	background: rgba(127, 127, 127, 0.08);
+}
+
+.regex-blacklist-test-result {
+	margin: 4px 0 0;
+	font-weight: bold;
+}
+
+.regex-blacklist-match {
+	color: #2e7d32;
+}
+
+.regex-blacklist-no-match {
+	color: #757575;
+}

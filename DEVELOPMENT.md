@@ -26,7 +26,10 @@ make check
 ```
 xExtension-RegexBlacklist/
 ├── extension.php              # Main extension class
-├── configure.phtml            # Configuration UI
+├── configure.phtml            # Configuration UI (rules table)
+├── static/
+│   ├── script.js               # Add/remove rule rows, client-side regex tester
+│   └── style.css                # Rules table styling
 ├── metadata.json              # Extension metadata
 ├── README.md                  # User documentation
 ├── DEVELOPMENT.md             # This file
@@ -34,7 +37,7 @@ xExtension-RegexBlacklist/
 ├── composer.json              # Dependencies
 ├── phpunit.xml                # Test configuration
 ├── tests/
-│   ├── bootstrap.php          # Test setup
+│   ├── bootstrap.php          # Test setup (mocks the real FreshRSS API surface)
 │   └── RegexBlacklistTest.php # Unit tests
 └── Makefile
 ```

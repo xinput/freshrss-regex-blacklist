@@ -1,15 +1,17 @@
 # FreshRSS Regex Blacklist Extension
 
-A powerful FreshRSS extension that prevents articles from being imported based on regex pattern matching against title and content.
+A FreshRSS extension that prevents articles from being imported based on named regex rules, each scoped to a match field and (optionally) a specific feed — similar to TTRSS's filter rules.
 
 ## Features
 
+- **Named rules** — each rule has its own name, pattern, match field, and feed scope
 - **Regex-based filtering** at import time (prevents database bloat)
-- **Global patterns** applied to all feeds
+- **Per-rule feed scope** — apply to one specific feed, or all feeds
+- **Per-rule match field** — Title only, Content only, Title + Content, or Author
+- **Built-in regex tester** — paste sample text and see live match/no-match while editing a rule
+- **Per-rule blocked-count** to monitor which rules are actually firing
 - **Case-insensitive matching** by default
-- **Statistics tracking** to monitor blocked articles
-- **Fail-safe design** — invalid patterns don't break imports
-- **Per-field matching** — checks both title and content
+- **Fail-safe design** — invalid patterns don't break imports, they're just skipped (with a warning logged)
 
 ## Installation
 
@@ -37,8 +39,15 @@ volumes:
 
 1. Go to **Settings → Extensions** in FreshRSS
 2. Find **Regex Blacklist** and click **Configure**
-3. Enter regex patterns (one per line)
+3. Click **+ Add Rule** for each blocking rule you want:
+   - **Rule Name** — a label to identify it (e.g. "Block sponsored posts")
+   - **Regex Pattern** — PHP PCRE syntax, no delimiters (e.g. `sponsor`)
+   - **Match** — which field(s) to test the pattern against: Title + Content, Title only, Content only, or Author
+   - **Applies to Feed** — a specific subscribed feed, or "All feeds"
+   - **Test** — opens an inline tester: paste sample text and see live match/no-match against your pattern
 4. Click **Save Configuration**
+
+The first enabled rule that matches an incoming article blocks it from import. Each rule's **Blocked** column shows how many articles it has blocked so far.
 
 ## Pattern Examples
 
@@ -62,10 +71,10 @@ clickbait|click-bait
 ## How It Works
 
 1. When FreshRSS refreshes feeds, new articles are intercepted
-2. Each article's **title** and **content** are tested against patterns
-3. If **any pattern matches**, the article is **blocked from import**
-4. Matched articles never enter your database
-5. Statistics are tracked for monitoring
+2. Rules are checked in order; a rule only applies if it's enabled and its feed scope matches (or it's scoped to "All feeds")
+3. The rule's match field(s) are tested against its pattern
+4. On the first matching rule, the article is **blocked from import** and that rule's blocked-count is incremented
+5. Matched articles never enter your database
 
 ## Performance
 
