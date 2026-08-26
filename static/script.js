@@ -1,14 +1,14 @@
 (function () {
 	'use strict';
 
-	function runTest(ruleRow, testerRow) {
-		if (!ruleRow || !testerRow) {
+	function runTest(ruleCard) {
+		if (!ruleCard) {
 			return;
 		}
 
-		var patternInput = ruleRow.querySelector('.regex-blacklist-pattern');
-		var sample = testerRow.querySelector('.regex-blacklist-sample');
-		var result = testerRow.querySelector('.regex-blacklist-test-result');
+		var patternInput = ruleCard.querySelector('.regex-blacklist-pattern');
+		var sample = ruleCard.querySelector('.regex-blacklist-sample');
+		var result = ruleCard.querySelector('.regex-blacklist-test-result');
 		if (!patternInput || !sample || !result) {
 			return;
 		}
@@ -37,7 +37,7 @@
 	function nextRuleIndex(app) {
 		var current = parseInt(app.getAttribute('data-next-index') || '', 10);
 		if (isNaN(current)) {
-			current = app.querySelectorAll('tr.regex-blacklist-rule-row').length;
+			current = app.querySelectorAll('.regex-blacklist-rule').length;
 		}
 		app.setAttribute('data-next-index', String(current + 1));
 		return current;
@@ -65,37 +65,38 @@
 			var raw = template.innerHTML.split('__INDEX__').join(String(index));
 			var tmp = document.createElement('template');
 			tmp.innerHTML = raw;
-			tmp.content.querySelectorAll('tr').forEach(function (row) {
-				rulesBody.appendChild(row);
-			});
+			var card = tmp.content.querySelector('.regex-blacklist-rule');
+			if (card) {
+				rulesBody.appendChild(card);
+				var nameInput = card.querySelector('.regex-blacklist-name');
+				if (nameInput) {
+					nameInput.focus();
+				}
+			}
 			return;
 		}
 
 		var removeBtn = event.target.closest('.regex-blacklist-remove-btn');
 		if (removeBtn) {
-			var row = removeBtn.closest('tr.regex-blacklist-rule-row');
-			if (row) {
-				var testerRow = row.nextElementSibling;
-				if (testerRow && testerRow.classList.contains('regex-blacklist-tester-row')) {
-					testerRow.remove();
-				}
-				row.remove();
+			var ruleToRemove = removeBtn.closest('.regex-blacklist-rule');
+			if (ruleToRemove) {
+				ruleToRemove.remove();
 			}
 			return;
 		}
 
 		var testBtn = event.target.closest('.regex-blacklist-test-btn');
 		if (testBtn) {
-			var ruleRow = testBtn.closest('tr.regex-blacklist-rule-row');
-			var pairedTesterRow = ruleRow ? ruleRow.nextElementSibling : null;
-			if (pairedTesterRow && pairedTesterRow.classList.contains('regex-blacklist-tester-row')) {
-				pairedTesterRow.hidden = !pairedTesterRow.hidden;
-				if (!pairedTesterRow.hidden) {
-					var sample = pairedTesterRow.querySelector('.regex-blacklist-sample');
+			var ruleCard = testBtn.closest('.regex-blacklist-rule');
+			var tester = ruleCard ? ruleCard.querySelector('.regex-blacklist-tester') : null;
+			if (tester) {
+				tester.hidden = !tester.hidden;
+				if (!tester.hidden) {
+					var sample = tester.querySelector('.regex-blacklist-sample');
 					if (sample) {
 						sample.focus();
 					}
-					runTest(ruleRow, pairedTesterRow);
+					runTest(ruleCard);
 				}
 			}
 		}
@@ -106,14 +107,8 @@
 			return;
 		}
 
-		if (event.target.classList.contains('regex-blacklist-pattern')) {
-			var ruleRow = event.target.closest('tr.regex-blacklist-rule-row');
-			var testerRow = ruleRow ? ruleRow.nextElementSibling : null;
-			runTest(ruleRow, testerRow);
-		} else if (event.target.classList.contains('regex-blacklist-sample')) {
-			var currentTesterRow = event.target.closest('tr.regex-blacklist-tester-row');
-			var currentRuleRow = currentTesterRow ? currentTesterRow.previousElementSibling : null;
-			runTest(currentRuleRow, currentTesterRow);
+		if (event.target.classList.contains('regex-blacklist-pattern') || event.target.classList.contains('regex-blacklist-sample')) {
+			runTest(event.target.closest('.regex-blacklist-rule'));
 		}
 	});
 })();

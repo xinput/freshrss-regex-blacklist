@@ -12,16 +12,16 @@
 	$feeds = FreshRSS_Factory::createFeedDao()->listFeeds();
 
 	/**
-	 * Renders one rule row plus its (initially hidden) regex-tester row.
+	 * Renders one rule as a self-contained card.
 	 * $index is either an int (existing rule) or the literal string
-	 * '__INDEX__' (blank row rendered once into the <template>, replaced
+	 * '__INDEX__' (blank card rendered once into the <template>, replaced
 	 * client-side by script.js on "Add Rule").
 	 *
 	 * @param array<string,mixed> $rule
 	 * @param int|string $index
 	 * @param FreshRSS_Feed[] $feeds
 	 */
-	$renderRuleRow = function (array $rule, $index, array $feeds): void {
+	$renderRuleCard = function (array $rule, $index, array $feeds): void {
 		$id = htmlspecialchars((string) ($rule['id'] ?? ''), ENT_COMPAT, 'UTF-8');
 		$name = htmlspecialchars((string) ($rule['name'] ?? ''), ENT_COMPAT, 'UTF-8');
 		$pattern = htmlspecialchars((string) ($rule['pattern'] ?? ''), ENT_COMPAT, 'UTF-8');
@@ -31,49 +31,69 @@
 		$blockedCount = (int) ($rule['blocked_count'] ?? 0);
 		$idxAttr = htmlspecialchars((string) $index, ENT_COMPAT, 'UTF-8');
 		?>
-		<tr class="regex-blacklist-rule-row" data-index="<?= $idxAttr ?>">
-			<td>
-				<input type="hidden" name="rules[<?= $idxAttr ?>][id]" value="<?= $id ?>" />
-				<input type="checkbox" name="rules[<?= $idxAttr ?>][enabled]" value="1" <?= $enabled ? 'checked' : '' ?> />
-			</td>
-			<td>
-				<input type="text" class="w100" name="rules[<?= $idxAttr ?>][name]" value="<?= $name ?>" placeholder="e.g. Block sponsored posts" />
-			</td>
-			<td>
-				<input type="text" class="w100 regex-blacklist-pattern" name="rules[<?= $idxAttr ?>][pattern]" value="<?= $pattern ?>" placeholder="sponsor|advert" />
-			</td>
-			<td>
-				<select name="rules[<?= $idxAttr ?>][match_field]">
-					<option value="both" <?= $matchField === 'both' ? 'selected' : '' ?>>Title + Content</option>
-					<option value="title" <?= $matchField === 'title' ? 'selected' : '' ?>>Title only</option>
-					<option value="content" <?= $matchField === 'content' ? 'selected' : '' ?>>Content only</option>
-					<option value="author" <?= $matchField === 'author' ? 'selected' : '' ?>>Author</option>
-				</select>
-			</td>
-			<td>
-				<select name="rules[<?= $idxAttr ?>][feed_id]">
-					<option value="0" <?= $feedId === 0 ? 'selected' : '' ?>>All feeds</option>
-					<?php foreach ($feeds as $feed): ?>
-						<option value="<?= $feed->id() ?>" <?= $feedId === $feed->id() ? 'selected' : '' ?>>
-							<?= htmlspecialchars($feed->name(), ENT_COMPAT, 'UTF-8') ?>
-						</option>
-					<?php endforeach; ?>
-				</select>
-			</td>
-			<td class="regex-blacklist-blocked-count"><?= $blockedCount ?></td>
-			<td>
-				<button type="button" class="btn regex-blacklist-test-btn">Test</button>
+		<div class="regex-blacklist-rule" data-index="<?= $idxAttr ?>">
+			<input type="hidden" name="rules[<?= $idxAttr ?>][id]" value="<?= $id ?>" />
+
+			<div class="regex-blacklist-rule-header">
+				<label class="regex-blacklist-enabled-label">
+					<input type="checkbox" name="rules[<?= $idxAttr ?>][enabled]" value="1" <?= $enabled ? 'checked' : '' ?> />
+					Enabled
+				</label>
+				<input
+					type="text"
+					class="regex-blacklist-name"
+					name="rules[<?= $idxAttr ?>][name]"
+					value="<?= $name ?>"
+					placeholder="Rule name, e.g. Block sponsored posts"
+				/>
+				<span class="regex-blacklist-blocked-count" title="Articles blocked by this rule">Blocked: <?= $blockedCount ?></span>
 				<button type="button" class="btn regex-blacklist-remove-btn">Remove</button>
-			</td>
-		</tr>
-		<tr class="regex-blacklist-tester-row" hidden>
-			<td colspan="7">
+			</div>
+
+			<div class="regex-blacklist-field">
+				<label>Regex Pattern</label>
+				<div class="regex-blacklist-pattern-row">
+					<input
+						type="text"
+						class="regex-blacklist-pattern"
+						name="rules[<?= $idxAttr ?>][pattern]"
+						value="<?= $pattern ?>"
+						placeholder="sponsor|advert"
+					/>
+					<button type="button" class="btn regex-blacklist-test-btn">Test</button>
+				</div>
+			</div>
+
+			<div class="regex-blacklist-scope-row">
+				<label class="regex-blacklist-scope-field">
+					Match
+					<select name="rules[<?= $idxAttr ?>][match_field]">
+						<option value="both" <?= $matchField === 'both' ? 'selected' : '' ?>>Title + Content</option>
+						<option value="title" <?= $matchField === 'title' ? 'selected' : '' ?>>Title only</option>
+						<option value="content" <?= $matchField === 'content' ? 'selected' : '' ?>>Content only</option>
+						<option value="author" <?= $matchField === 'author' ? 'selected' : '' ?>>Author</option>
+					</select>
+				</label>
+				<label class="regex-blacklist-scope-field">
+					Applies to Feed
+					<select name="rules[<?= $idxAttr ?>][feed_id]">
+						<option value="0" <?= $feedId === 0 ? 'selected' : '' ?>>All feeds</option>
+						<?php foreach ($feeds as $feed): ?>
+							<option value="<?= $feed->id() ?>" <?= $feedId === $feed->id() ? 'selected' : '' ?>>
+								<?= htmlspecialchars($feed->name(), ENT_COMPAT, 'UTF-8') ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</label>
+			</div>
+
+			<div class="regex-blacklist-tester" hidden>
 				<label>Sample text to test this pattern against</label>
-				<textarea class="w100 regex-blacklist-sample" rows="2" placeholder="Paste a title or content snippet"></textarea>
-				<p class="regex-blacklist-test-result help"></p>
+				<textarea class="regex-blacklist-sample" rows="2" placeholder="Paste a title or content snippet"></textarea>
+				<p class="regex-blacklist-test-result"></p>
 				<p class="help">Uses your browser's regex engine (JavaScript), a close approximation of PHP's PCRE — verify against real content if in doubt.</p>
-			</td>
-		</tr>
+			</div>
+		</div>
 		<?php
 	};
 ?>
@@ -88,25 +108,10 @@
 		<fieldset>
 			<legend>Blacklist Rules</legend>
 
-			<div class="regex-blacklist-table-wrap">
-				<table class="regex-blacklist-rules-table">
-					<thead>
-						<tr>
-							<th>Enabled</th>
-							<th>Rule Name</th>
-							<th>Regex Pattern</th>
-							<th>Match</th>
-							<th>Applies to Feed</th>
-							<th>Blocked</th>
-							<th></th>
-						</tr>
-					</thead>
-					<tbody id="regexBlacklistRulesBody">
-						<?php foreach ($rules as $index => $rule): ?>
-							<?php $renderRuleRow($rule, $index, $feeds); ?>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
+			<div id="regexBlacklistRulesBody">
+				<?php foreach ($rules as $index => $rule): ?>
+					<?php $renderRuleCard($rule, $index, $feeds); ?>
+				<?php endforeach; ?>
 			</div>
 
 			<p>
@@ -127,12 +132,10 @@
 	</form>
 
 	<template id="regexBlacklistRowTemplate">
-		<table><tbody>
-			<?php $renderRuleRow(
-				['id' => '', 'name' => '', 'pattern' => '', 'match_field' => 'both', 'feed_id' => 0, 'enabled' => true, 'blocked_count' => 0],
-				'__INDEX__',
-				$feeds
-			); ?>
-		</tbody></table>
+		<?php $renderRuleCard(
+			['id' => '', 'name' => '', 'pattern' => '', 'match_field' => 'both', 'feed_id' => 0, 'enabled' => true, 'blocked_count' => 0],
+			'__INDEX__',
+			$feeds
+		); ?>
 	</template>
 </div>
