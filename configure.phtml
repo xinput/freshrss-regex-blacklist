@@ -1,0 +1,70 @@
+<?php
+declare(strict_types=1);
+$this->includeFile('_header.phtml');
+?>
+
+<div class="container">
+    <h2><?php echo $this->extension->getName(); ?></h2>
+    
+    <p><?php echo $this->extension->getDescription(); ?></p>
+
+    <form method="post" action="<?php echo $this->link('extension', 'configure', 'RegexBlacklist'); ?>">
+        <fieldset>
+            <legend>Global Patterns</legend>
+            
+            <p>
+                <label for="global_patterns">
+                    <strong>Regex Patterns (one per line)</strong>
+                </label>
+            </p>
+            
+            <p>
+                <textarea 
+                    name="global_patterns" 
+                    id="global_patterns" 
+                    rows="10" 
+                    cols="80"
+                    placeholder="Example: &#10;sponsored&#10;^Ad:&#10;click-?bait&#10;(sponsor|advertisement)"
+                ><?php echo htmlspecialchars($this->extension->getConfig('global_patterns', '')); ?></textarea>
+            </p>
+            
+            <p class="form-info">
+                <strong>Tips:</strong>
+                <ul>
+                    <li>Patterns are matched against article <strong>title and content</strong></li>
+                    <li>Matching is <strong>case-insensitive</strong></li>
+                    <li>Use standard PHP regex syntax (without delimiters)</li>
+                    <li>Examples:
+                        <ul>
+                            <li><code>sponsor</code> — matches "Sponsored" or "sponsorship"</li>
+                            <li><code>^Ad:</code> — matches titles starting with "Ad:"</li>
+                            <li><code>(clickbait|click-bait)</code> — matches either variant</li>
+                        </ul>
+                    </li>
+                    <li><strong>Articles matching any pattern will not be imported</strong></li>
+                </ul>
+            </p>
+
+            <button type="submit" class="btn btn-primary">Save Configuration</button>
+        </fieldset>
+    </form>
+
+    <?php 
+    $stats = $this->extension->getConfig('stats', '{}');
+    $statsArray = json_decode($stats, true) ?? [];
+    
+    if (!empty($statsArray)): 
+    ?>
+        <fieldset>
+            <legend>Statistics</legend>
+            <p><strong>Articles Blocked:</strong></p>
+            <ul>
+                <?php foreach ($statsArray as $source => $count): ?>
+                    <li><?php echo htmlspecialchars($source); ?>: <strong><?php echo $count; ?></strong></li>
+                <?php endforeach; ?>
+            </ul>
+        </fieldset>
+    <?php endif; ?>
+</div>
+
+<?php $this->includeFile('_footer.phtml'); ?>

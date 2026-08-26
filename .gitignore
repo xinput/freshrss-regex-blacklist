@@ -1,0 +1,23 @@
+# Local development
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Dependencies
+vendor/
+composer.lock
+
+# Logs
+logs/
+*.log
+
+# Test coverage
+coverage/
+.phpunit.result.cache
+
+# IDE
+.sublime-workspace
+*.sublime-project

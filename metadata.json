@@ -1,0 +1,13 @@
+{
+  "name": "Regex Blacklist",
+  "description": "Prevent articles from being imported based on regex pattern matching against title and content",
+  "version": "1.0.0",
+  "entrypoint": "RegexBlacklist",
+  "author": "Your Name",
+  "license": "AGPL-3.0-or-later",
+  "permissions": {
+    "dom_access": false
+  },
+  "compatible": "1.20.0+",
+  "homepage": "https://github.com/yourusername/freshrss-regex-blacklist"
+}
