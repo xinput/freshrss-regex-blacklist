@@ -71,6 +71,28 @@ class RegexBlacklistTest extends TestCase {
         $this->assertSame($entryD, $extension->filterEntryOnImport($entryD));
     }
 
+    public function testMultiplePatternsInOneRuleAnyLineMatches(): void {
+        $extension = $this->createMockExtension([$this->rule(pattern: "sponsor\nadvertise\n\\[ad\\]")]);
+
+        $entryA = $this->createMockEntry('sponsored content', '');
+        $entryB = $this->createMockEntry('advertisement', '');
+        $entryC = $this->createMockEntry('[ad] link', '');
+        $entryD = $this->createMockEntry('real news', '');
+
+        $this->assertNull($extension->filterEntryOnImport($entryA));
+        $this->assertNull($extension->filterEntryOnImport($entryB));
+        $this->assertNull($extension->filterEntryOnImport($entryC));
+        $this->assertSame($entryD, $extension->filterEntryOnImport($entryD));
+    }
+
+    public function testInvalidPatternLineDoesNotSuppressOtherLinesInSameRule(): void {
+        $extension = $this->createMockExtension([$this->rule(pattern: "[invalid(regex\nsponsor")]);
+
+        $entry = $this->createMockEntry('sponsored content', '');
+
+        $this->assertNull($extension->filterEntryOnImport($entry), 'A bad line should be skipped, not disable the whole rule');
+    }
+
     public function testMatchFieldTitleOnlyIgnoresContent(): void {
         $entry = $this->createMockEntry('Interesting Article', 'sponsored mention buried in content');
         $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor', matchField: 'title')]);

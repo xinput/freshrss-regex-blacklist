@@ -1,6 +1,6 @@
 # Regex Pattern Examples
 
-Paste these into the **Regex Pattern** field of a rule. Each rule has its own pattern, so a block of related patterns below is usually best split into one rule per line (or joined with `|` in a single rule if they should all share one name/scope).
+Paste a whole block below directly into one rule's **Regex Pattern(s)** field — each line is matched independently (OR semantics), so a themed group like "Block Sponsored/Promotional Content" works well as a single rule with multiple lines.
 
 ## Content Filtering
 

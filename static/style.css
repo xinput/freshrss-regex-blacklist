@@ -52,6 +52,16 @@
 	flex: 1 1 auto;
 	min-width: 0;
 	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	resize: vertical;
+	box-sizing: border-box;
+}
+
+.regex-blacklist-pattern-row {
+	align-items: flex-start;
+}
+
+.regex-blacklist-pattern-row .btn {
+	white-space: nowrap;
 }
 
 .regex-blacklist-scope-row {

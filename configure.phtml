@@ -51,15 +51,14 @@
 			</div>
 
 			<div class="regex-blacklist-field">
-				<label>Regex Pattern</label>
+				<label>Regex Pattern(s) — one per line, matches if <em>any</em> line matches</label>
 				<div class="regex-blacklist-pattern-row">
-					<input
-						type="text"
+					<textarea
 						class="regex-blacklist-pattern"
 						name="rules[<?= $idxAttr ?>][pattern]"
-						value="<?= $pattern ?>"
-						placeholder="sponsor|advert"
-					/>
+						rows="3"
+						placeholder="sponsor&#10;advert&#10;^\[AD\]"
+					><?= $pattern ?></textarea>
 					<button type="button" class="btn regex-blacklist-test-btn">Test</button>
 				</div>
 			</div>

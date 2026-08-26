@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- A rule's Regex Pattern field now accepts multiple patterns, one per line,
+  matched with OR semantics — a rule matches if any of its lines match. An
+  invalid line is skipped without disabling the rule's other lines.
+
 ## [2.0.0] - 2026-08-26
 
 ### Added

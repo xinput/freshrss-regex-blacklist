@@ -13,22 +13,38 @@
 			return;
 		}
 
-		var pattern = patternInput.value;
+		var lines = patternInput.value.split('\n')
+			.map(function (line) { return line.trim(); })
+			.filter(function (line) { return line !== ''; });
+
 		result.classList.remove('regex-blacklist-match', 'regex-blacklist-no-match');
 
-		if (pattern === '') {
+		if (lines.length === 0) {
 			result.textContent = '';
 			return;
 		}
 
-		try {
-			var re = new RegExp(pattern, 'i');
-			var matched = re.test(sample.value);
-			result.textContent = matched ? '✓ Matches' : '✗ No match';
-			result.classList.add(matched ? 'regex-blacklist-match' : 'regex-blacklist-no-match');
-		} catch (e) {
-			result.textContent = '⚠ Invalid regex: ' + e.message;
+		var invalidCount = 0;
+		for (var i = 0; i < lines.length; i++) {
+			try {
+				var re = new RegExp(lines[i], 'i');
+				if (re.test(sample.value)) {
+					result.textContent = '✓ Matches (pattern: ' + lines[i] + ')';
+					result.classList.add('regex-blacklist-match');
+					return;
+				}
+			} catch (e) {
+				invalidCount++;
+			}
 		}
+
+		if (invalidCount === lines.length) {
+			result.textContent = '⚠ All patterns are invalid';
+			return;
+		}
+
+		result.textContent = '✗ No match' + (invalidCount > 0 ? ' (' + invalidCount + ' invalid pattern(s) skipped)' : '');
+		result.classList.add('regex-blacklist-no-match');
 	}
 
 	// Persist a running index on the app container itself (rather than a

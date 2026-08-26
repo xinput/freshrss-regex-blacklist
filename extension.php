@@ -6,10 +6,11 @@ declare(strict_types=1);
  * Regex Blacklist Extension for FreshRSS
  *
  * Prevents articles from being imported based on regex pattern matching.
- * Rules are named, each with its own pattern, which entry field(s) to
- * match against (title / content / both / author), and an optional feed
- * scope (a specific feed, or all feeds). The first matching enabled rule
- * blocks the article from import (return null).
+ * Rules are named, each with one or more patterns (one per line, matched
+ * with OR semantics), which entry field(s) to match against (title /
+ * content / both / author), and an optional feed scope (a specific feed,
+ * or all feeds). The first matching enabled rule blocks the article from
+ * import (return null).
  *
  * @package FreshRSS
  * @subpackage Extensions
@@ -105,8 +106,8 @@ final class RegexBlacklistExtension extends Minz_Extension {
             return false;
         }
 
-        $pattern = trim((string) ($rule['pattern'] ?? ''));
-        if ($pattern === '') {
+        $patterns = $this->splitPatterns((string) ($rule['pattern'] ?? ''));
+        if (empty($patterns)) {
             return false;
         }
 
@@ -120,20 +121,37 @@ final class RegexBlacklistExtension extends Minz_Extension {
             $matchField = 'both';
         }
 
-        $regex = '~' . $pattern . '~i';
+        $haystacks = $this->getHaystacks($entry, $matchField);
 
-        foreach ($this->getHaystacks($entry, $matchField) as $haystack) {
-            $result = @preg_match($regex, $haystack);
-            if ($result === false) {
-                Minz_Log::warning('[RegexBlacklist] Invalid regex in rule "' . ($rule['name'] ?? '') . '": ' . $pattern);
-                return false;
-            }
-            if ($result === 1) {
-                return true;
+        foreach ($patterns as $pattern) {
+            $regex = '~' . $pattern . '~i';
+
+            foreach ($haystacks as $haystack) {
+                $result = @preg_match($regex, $haystack);
+                if ($result === false) {
+                    Minz_Log::warning('[RegexBlacklist] Invalid regex in rule "' . ($rule['name'] ?? '') . '": ' . $pattern);
+                    continue 2; // skip this one bad pattern, keep checking the rule's other patterns
+                }
+                if ($result === 1) {
+                    return true;
+                }
             }
         }
 
         return false;
+    }
+
+    /**
+     * Splits a rule's pattern field into individual patterns — one per
+     * (non-blank) line, matched with OR semantics.
+     *
+     * @return string[]
+     */
+    private function splitPatterns(string $raw): array {
+        $lines = array_map('trim', explode("\n", $raw));
+        return array_values(array_filter($lines, static function (string $line): bool {
+            return $line !== '';
+        }));
     }
 
     /**
@@ -176,8 +194,8 @@ final class RegexBlacklistExtension extends Minz_Extension {
             }
 
             $pattern = trim((string) ($raw['pattern'] ?? ''));
-            if ($pattern === '') {
-                continue; // skip blank rows (e.g. an unfilled "Add Rule" row)
+            if (empty($this->splitPatterns($pattern))) {
+                continue; // skip rows with no non-blank pattern line (e.g. an unfilled "Add Rule" row)
             }
 
             $id = (string) ($raw['id'] ?? '');

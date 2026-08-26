@@ -41,7 +41,7 @@ volumes:
 2. Find **Regex Blacklist** and click **Configure**
 3. Click **+ Add Rule** for each blocking rule you want:
    - **Rule Name** — a label to identify it (e.g. "Block sponsored posts")
-   - **Regex Pattern** — PHP PCRE syntax, no delimiters (e.g. `sponsor`)
+   - **Regex Pattern(s)** — PHP PCRE syntax, no delimiters, one per line (e.g. `sponsor`); a rule matches if *any* of its lines match
    - **Match** — which field(s) to test the pattern against: Title + Content, Title only, Content only, or Author
    - **Applies to Feed** — a specific subscribed feed, or "All feeds"
    - **Test** — opens an inline tester: paste sample text and see live match/no-match against your pattern
