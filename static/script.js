@@ -31,7 +31,15 @@
 		}
 	}
 
-	document.addEventListener('DOMContentLoaded', function () {
+	function ready(fn) {
+		if (document.readyState === 'loading') {
+			document.addEventListener('DOMContentLoaded', fn);
+		} else {
+			fn();
+		}
+	}
+
+	ready(function () {
 		var app = document.getElementById('regexBlacklistApp');
 		if (!app) {
 			return;

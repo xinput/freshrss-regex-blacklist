@@ -29,7 +29,12 @@ final class RegexBlacklistExtension extends Minz_Extension {
             Minz_HookType::EntryBeforeInsert,
             [$this, 'filterEntryOnImport']
         );
-        Minz_View::appendScript($this->getFileUrl('script.js'));
+        // async: false — a deferred (non-async) script runs in document order,
+        // guaranteed before DOMContentLoaded. With async (the default), the
+        // script can finish loading and execute *after* DOMContentLoaded has
+        // already fired on a fast-parsing page, silently skipping the
+        // 'DOMContentLoaded' listener registered inside it.
+        Minz_View::appendScript($this->getFileUrl('script.js'), false, true, false);
         Minz_View::appendStyle($this->getFileUrl('style.css'));
     }
 
