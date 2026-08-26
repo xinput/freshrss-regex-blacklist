@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Regex Blacklist Extension for FreshRSS
  * 
  * Prevents articles from being imported based on regex pattern matching.
- * Patterns are matched against article fields like title, content, and author.
+ * Patterns are matched against the article title and content.
  * Articles matching any pattern are blocked from import (return null).
  * 
  * @package FreshRSS
@@ -17,6 +17,7 @@ class RegexBlacklistExtension extends Minz_Extension {
 
     const GLOBAL_CONFIG_KEY = 'global_patterns';
     const STATS_CONFIG_KEY = 'stats';
+    const MAX_MATCH_LENGTH = 10000;
 
     /**
      * Initialize the extension
@@ -79,8 +80,8 @@ class RegexBlacklistExtension extends Minz_Extension {
         }
 
         $title = $entry->getTitle() ?? '';
-        $content = $entry->getContent() ?? '';
-        
+        $content = substr($entry->getContent() ?? '', 0, self::MAX_MATCH_LENGTH);
+
         foreach ($patterns as $pattern) {
             if ($this->matchesPattern($title, $content, $pattern)) {
                 return true;
@@ -94,20 +95,17 @@ class RegexBlacklistExtension extends Minz_Extension {
      * Check if pattern matches title or content
      */
     private function matchesPattern(string $title, string $content, string $pattern): bool {
-        $regex = '/' . $pattern . '/i';
-        
-        try {
-            if (@preg_match($regex, $title) === 1) {
-                return true;
-            }
-            if (@preg_match($regex, $content) === 1) {
-                return true;
-            }
-        } catch (Throwable $e) {
+        $regex = '~' . $pattern . '~i';
+
+        $titleResult = @preg_match($regex, $title);
+        $contentResult = @preg_match($regex, $content);
+
+        if ($titleResult === false || $contentResult === false) {
             _log('warn', '[RegexBlacklist] Invalid regex pattern: ' . $pattern);
+            return false;
         }
 
-        return false;
+        return $titleResult === 1 || $contentResult === 1;
     }
 
     /**
@@ -140,8 +138,10 @@ class RegexBlacklistExtension extends Minz_Extension {
     public function handleConfigureAction(): void {
         if ($this->isPost()) {
             $globalPatterns = $this->getPost('global_patterns', '');
+            if ($globalPatterns !== $this->getConfig(self::GLOBAL_CONFIG_KEY, '')) {
+                $this->setConfig(self::STATS_CONFIG_KEY, '{}');
+            }
             $this->setConfig(self::GLOBAL_CONFIG_KEY, $globalPatterns);
-            $this->setConfig(self::STATS_CONFIG_KEY, '{}');
             _log('info', '[RegexBlacklist] Configuration updated');
         }
     }
