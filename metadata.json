@@ -2,7 +2,7 @@
   "name": "Regex Blacklist",
   "description": "Prevent articles from being imported based on regex pattern matching against title and content",
   "version": "1.0.0",
-  "entrypoint": "RegexBlacklistExtension",
+  "entrypoint": "RegexBlacklist",
   "author": "Your Name",
   "license": "AGPL-3.0-or-later",
   "permissions": {
