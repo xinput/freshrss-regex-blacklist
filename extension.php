@@ -20,9 +20,11 @@ final class RegexBlacklistExtension extends Minz_Extension {
 
     private const RULES_KEY = 'rules';
     private const LOG_KEY = 'log';
+    private const SEEN_KEY = 'blocked_seen';
     private const MAX_MATCH_LENGTH = 10000;
     private const MAX_LOG_ENTRIES = 200;
     private const MAX_LOG_TITLE_LENGTH = 300;
+    private const MAX_SEEN_ENTRIES = 5000;
     private const MATCH_FIELDS = ['title', 'content', 'both', 'author'];
 
     /**
@@ -59,9 +61,17 @@ final class RegexBlacklistExtension extends Minz_Extension {
 
             if ($match !== null) {
                 [$index, $matchedField, $matchedPattern] = $match;
-                $rules[$index]['blocked_count'] = (int) ($rules[$index]['blocked_count'] ?? 0) + 1;
-                $this->saveRules($rules);
-                $this->recordBlockedEntry($entry, $rules[$index], $matchedField, $matchedPattern);
+
+                // FreshRSS retries import of a blocked entry on every feed refresh —
+                // since it's never inserted, there's no dedup record to recognize it
+                // as "already seen" next time. Without this, the same article would
+                // inflate blocked_count/log on every poll instead of counting once.
+                if (!$this->wasAlreadyBlocked($entry)) {
+                    $rules[$index]['blocked_count'] = (int) ($rules[$index]['blocked_count'] ?? 0) + 1;
+                    $this->saveRules($rules);
+                    $this->recordBlockedEntry($entry, $rules[$index], $matchedField, $matchedPattern);
+                }
+
                 return null;
             }
 
@@ -209,6 +219,57 @@ final class RegexBlacklistExtension extends Minz_Extension {
                     'content' => substr($entry->content(), 0, self::MAX_MATCH_LENGTH),
                 ];
         }
+    }
+
+    /**
+     * A stable per-article key: guid is what FreshRSS itself uses to recognize
+     * "the same entry" across repeated feed refreshes, scoped to the feed since
+     * guids are only guaranteed unique within a feed.
+     */
+    private function dedupKey(FreshRSS_Entry $entry): string {
+        $guid = method_exists($entry, 'guid') ? $entry->guid() : '';
+        if ($guid === '') {
+            $guid = $entry->link() . '|' . $entry->title(); // fallback for a feed with no/empty guid
+        }
+        return $entry->feedId() . '|' . $guid;
+    }
+
+    /**
+     * @return string[]
+     */
+    private function getSeen(): array {
+        $raw = $this->getUserConfigurationString(self::SEEN_KEY) ?? '[]';
+        $seen = json_decode($raw, true);
+        return is_array($seen) ? array_values($seen) : [];
+    }
+
+    /**
+     * @param string[] $seen
+     */
+    private function saveSeen(array $seen): void {
+        $this->setUserConfigurationValue(self::SEEN_KEY, json_encode($seen));
+    }
+
+    /**
+     * True if this exact article was already counted/logged as blocked before.
+     * Records it as seen (oldest evicted past MAX_SEEN_ENTRIES) as a side effect
+     * of a "no" answer, so a bounded set can't grow forever on a noisy blacklist.
+     */
+    private function wasAlreadyBlocked(FreshRSS_Entry $entry): bool {
+        $key = $this->dedupKey($entry);
+        $seen = $this->getSeen();
+
+        if (in_array($key, $seen, true)) {
+            return true;
+        }
+
+        $seen[] = $key;
+        if (count($seen) > self::MAX_SEEN_ENTRIES) {
+            $seen = array_slice($seen, count($seen) - self::MAX_SEEN_ENTRIES);
+        }
+        $this->saveSeen($seen);
+
+        return false;
     }
 
     /**

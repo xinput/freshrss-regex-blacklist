@@ -18,6 +18,7 @@ if (!class_exists('FreshRSS_Entry')) {
         private string $author = '';
         private int $feedId = 1;
         private string $link = '';
+        private string $guid = '';
 
         public function title(): string {
             return $this->title;
@@ -57,6 +58,14 @@ if (!class_exists('FreshRSS_Entry')) {
 
         public function _link(string $link): void {
             $this->link = $link;
+        }
+
+        public function guid(): string {
+            return $this->guid;
+        }
+
+        public function _guid(string $guid): void {
+            $this->guid = $guid;
         }
     }
 }

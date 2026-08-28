@@ -223,6 +223,54 @@ class RegexBlacklistTest extends TestCase {
         $this->assertSame('Real rule', $rules[0]['name']);
     }
 
+    public function testReimportOfSameArticleDoesNotInflateCountOrLog(): void {
+        // FreshRSS retries import of a blocked entry on every feed refresh, since
+        // a blocked entry is never inserted and so never gets a dedup record.
+        $extension = $this->createMockExtension([$this->rule(id: 'r1', pattern: 'sponsor')]);
+
+        $entry = $this->createMockEntry('Sponsored Content', '');
+        $entry->_guid('article-guid-1');
+
+        $extension->filterEntryOnImport($entry);
+        $extension->filterEntryOnImport($entry);
+        $extension->filterEntryOnImport($entry);
+
+        $rules = json_decode($extension->getUserConfigurationString('rules') ?? '[]', true);
+        $log = json_decode($extension->getUserConfigurationString('log') ?? '[]', true);
+        $this->assertSame(1, $rules[0]['blocked_count'], 'Re-blocking the same article should only count once');
+        $this->assertCount(1, $log, 'Re-blocking the same article should only log once');
+    }
+
+    public function testDifferentArticlesWithSameTitleButDifferentGuidBothCount(): void {
+        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor')]);
+
+        $entryA = $this->createMockEntry('Sponsored Content', '');
+        $entryA->_guid('guid-a');
+        $entryB = $this->createMockEntry('Sponsored Content', '');
+        $entryB->_guid('guid-b');
+
+        $extension->filterEntryOnImport($entryA);
+        $extension->filterEntryOnImport($entryB);
+
+        $rules = json_decode($extension->getUserConfigurationString('rules') ?? '[]', true);
+        $this->assertSame(2, $rules[0]['blocked_count']);
+    }
+
+    public function testSameGuidOnDifferentFeedsCountsSeparately(): void {
+        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor', feedIds: [])]);
+
+        $entryFeed1 = $this->createMockEntry('sponsored post', '', '', 1);
+        $entryFeed1->_guid('shared-guid');
+        $entryFeed2 = $this->createMockEntry('sponsored post', '', '', 2);
+        $entryFeed2->_guid('shared-guid');
+
+        $extension->filterEntryOnImport($entryFeed1);
+        $extension->filterEntryOnImport($entryFeed2);
+
+        $rules = json_decode($extension->getUserConfigurationString('rules') ?? '[]', true);
+        $this->assertSame(2, $rules[0]['blocked_count'], 'Same guid on different feeds should not be treated as a dupe');
+    }
+
     public function testBlockedEntryIsRecordedInLog(): void {
         $extension = $this->createMockExtension([$this->rule(id: 'r1', name: 'Sponsor rule', pattern: "advertise\nsponsor", feedIds: [42])]);
 

@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- A blocked article inflated its rule's Blocked counter (and the log) on
+  every feed refresh, not once — since a blocked entry is never inserted,
+  FreshRSS has no dedup record for it and retries the same article on the
+  next poll, forever. Now deduped per article (by feed + guid) so a repeat
+  block of the same article is silently ignored after the first time.
+
 ### Added
 
 - Blocked Articles Log — every article blocked by a rule now records a
