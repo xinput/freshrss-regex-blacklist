@@ -115,3 +115,27 @@
 .regex-blacklist-no-match {
 	color: #757575;
 }
+
+.regex-blacklist-log-wrap {
+	overflow-x: auto;
+	margin-bottom: 10px;
+}
+
+.regex-blacklist-log-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.9em;
+}
+
+.regex-blacklist-log-table th,
+.regex-blacklist-log-table td {
+	text-align: left;
+	padding: 6px 8px;
+	border-bottom: 1px solid rgba(127, 127, 127, 0.2);
+	vertical-align: top;
+}
+
+.regex-blacklist-log-table th {
+	white-space: nowrap;
+	opacity: 0.8;
+}

@@ -17,6 +17,7 @@ if (!class_exists('FreshRSS_Entry')) {
         private string $content = '';
         private string $author = '';
         private int $feedId = 1;
+        private string $link = '';
 
         public function title(): string {
             return $this->title;
@@ -48,6 +49,14 @@ if (!class_exists('FreshRSS_Entry')) {
 
         public function _feedId(int $feedId): void {
             $this->feedId = $feedId;
+        }
+
+        public function link(): string {
+            return $this->link;
+        }
+
+        public function _link(string $link): void {
+            $this->link = $link;
         }
     }
 }
@@ -158,6 +167,11 @@ if (!class_exists('Minz_Request')) {
         public static function paramArray(string $key, bool $plaintext = false): array {
             $value = self::$params[$key] ?? [];
             return is_array($value) ? $value : [];
+        }
+
+        public static function paramString(string $key, string $default = ''): string {
+            $value = self::$params[$key] ?? $default;
+            return is_string($value) ? $value : $default;
         }
     }
 }

@@ -223,6 +223,60 @@ class RegexBlacklistTest extends TestCase {
         $this->assertSame('Real rule', $rules[0]['name']);
     }
 
+    public function testBlockedEntryIsRecordedInLog(): void {
+        $extension = $this->createMockExtension([$this->rule(id: 'r1', name: 'Sponsor rule', pattern: "advertise\nsponsor", feedIds: [42])]);
+
+        $entry = $this->createMockEntry('Sponsored Content', 'body text', 'PromoBot', 42);
+        $entry->_link('https://example.com/article');
+
+        $extension->filterEntryOnImport($entry);
+
+        $log = json_decode($extension->getUserConfigurationString('log') ?? '[]', true);
+        $this->assertCount(1, $log);
+        $this->assertSame('r1', $log[0]['rule_id']);
+        $this->assertSame('Sponsor rule', $log[0]['rule_name']);
+        $this->assertSame(42, $log[0]['feed_id']);
+        $this->assertSame('Sponsored Content', $log[0]['title']);
+        $this->assertSame('https://example.com/article', $log[0]['link']);
+        $this->assertSame('title', $log[0]['matched_field'], 'Should attribute the match to the specific field, not the rule\'s "both" setting');
+        $this->assertSame('sponsor', $log[0]['matched_pattern'], 'Should record the specific pattern line that matched');
+    }
+
+    public function testAllowedEntryIsNotRecordedInLog(): void {
+        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor')]);
+
+        $extension->filterEntryOnImport($this->createMockEntry('Regular Tech News', ''));
+
+        $log = json_decode($extension->getUserConfigurationString('log') ?? '[]', true);
+        $this->assertSame([], $log);
+    }
+
+    public function testLogIsPrependedNewestFirstAndCapped(): void {
+        $extension = $this->createMockExtension([$this->rule(pattern: 'sponsor')]);
+
+        for ($i = 0; $i < 205; $i++) {
+            $extension->filterEntryOnImport($this->createMockEntry('sponsored #' . $i, ''));
+        }
+
+        $log = json_decode($extension->getUserConfigurationString('log') ?? '[]', true);
+        $this->assertCount(200, $log, 'Log should be capped at MAX_LOG_ENTRIES');
+        $this->assertSame('sponsored #204', $log[0]['title'], 'Newest blocked article should be first');
+    }
+
+    public function testClearLogRemovesAllEntriesWithoutTouchingRules(): void {
+        $extension = $this->createMockExtension([$this->rule(id: 'r1', name: 'Keep me', pattern: 'sponsor', blockedCount: 3)]);
+        $extension->filterEntryOnImport($this->createMockEntry('sponsored', ''));
+
+        Minz_Request::_setTestParams(['clear_log' => '1']);
+        $extension->handleConfigureAction();
+
+        $log = json_decode($extension->getUserConfigurationString('log') ?? '[]', true);
+        $rules = json_decode($extension->getUserConfigurationString('rules') ?? '[]', true);
+        $this->assertSame([], $log);
+        $this->assertCount(1, $rules, 'Rules should be untouched by a clear-log submission');
+        $this->assertSame('Keep me', $rules[0]['name']);
+    }
+
     public function testHandleConfigureActionParsesCommaSeparatedFeedIds(): void {
         $extension = $this->createMockExtension([]);
 

@@ -19,7 +19,10 @@ declare(strict_types=1);
 final class RegexBlacklistExtension extends Minz_Extension {
 
     private const RULES_KEY = 'rules';
+    private const LOG_KEY = 'log';
     private const MAX_MATCH_LENGTH = 10000;
+    private const MAX_LOG_ENTRIES = 200;
+    private const MAX_LOG_TITLE_LENGTH = 300;
     private const MATCH_FIELDS = ['title', 'content', 'both', 'author'];
 
     /**
@@ -52,11 +55,13 @@ final class RegexBlacklistExtension extends Minz_Extension {
 
         try {
             $rules = $this->getRules();
-            $matchedIndex = $this->findMatchingRuleIndex($entry, $rules);
+            $match = $this->findMatchingRule($entry, $rules);
 
-            if ($matchedIndex !== null) {
-                $rules[$matchedIndex]['blocked_count'] = (int) ($rules[$matchedIndex]['blocked_count'] ?? 0) + 1;
+            if ($match !== null) {
+                [$index, $matchedField, $matchedPattern] = $match;
+                $rules[$index]['blocked_count'] = (int) ($rules[$index]['blocked_count'] ?? 0) + 1;
                 $this->saveRules($rules);
+                $this->recordBlockedEntry($entry, $rules[$index], $matchedField, $matchedPattern);
                 return null;
             }
 
@@ -66,6 +71,14 @@ final class RegexBlacklistExtension extends Minz_Extension {
             Minz_Log::error('[RegexBlacklist] Exception during filtering: ' . $e->getMessage());
             return $entry;
         }
+    }
+
+    /**
+     * Exposed for configure.phtml, since the view script runs outside the
+     * class body and can't reach a private const via self:: or $this::.
+     */
+    public function getMaxLogEntries(): int {
+        return self::MAX_LOG_ENTRIES;
     }
 
     /**
@@ -88,11 +101,15 @@ final class RegexBlacklistExtension extends Minz_Extension {
 
     /**
      * @param array<int,array<string,mixed>> $rules
+     * @return array{0:int,1:string,2:string}|null Matched rule index, the specific
+     *         haystack field that matched ('title'/'content'/'author' — never
+     *         'both', even if the rule's match_field is 'both'), and the pattern line that matched.
      */
-    private function findMatchingRuleIndex(FreshRSS_Entry $entry, array $rules): ?int {
+    private function findMatchingRule(FreshRSS_Entry $entry, array $rules): ?array {
         foreach ($rules as $index => $rule) {
-            if ($this->matchesRule($entry, $rule)) {
-                return $index;
+            $match = $this->matchesRule($entry, $rule);
+            if ($match !== null) {
+                return [$index, $match[0], $match[1]];
             }
         }
         return null;
@@ -100,20 +117,21 @@ final class RegexBlacklistExtension extends Minz_Extension {
 
     /**
      * @param array<string,mixed> $rule
+     * @return array{0:string,1:string}|null The matched haystack field and pattern line, or null if no match.
      */
-    private function matchesRule(FreshRSS_Entry $entry, array $rule): bool {
+    private function matchesRule(FreshRSS_Entry $entry, array $rule): ?array {
         if (!(bool) ($rule['enabled'] ?? true)) {
-            return false;
+            return null;
         }
 
         $patterns = $this->splitPatterns((string) ($rule['pattern'] ?? ''));
         if (empty($patterns)) {
-            return false;
+            return null;
         }
 
         $feedIds = array_map('intval', (array) ($rule['feed_ids'] ?? []));
         if (!empty($feedIds) && !in_array($entry->feedId(), $feedIds, true)) {
-            return false;
+            return null;
         }
 
         $matchField = (string) ($rule['match_field'] ?? 'both');
@@ -126,19 +144,19 @@ final class RegexBlacklistExtension extends Minz_Extension {
         foreach ($patterns as $pattern) {
             $regex = '~' . $pattern . '~i';
 
-            foreach ($haystacks as $haystack) {
+            foreach ($haystacks as $field => $haystack) {
                 $result = @preg_match($regex, $haystack);
                 if ($result === false) {
                     Minz_Log::warning('[RegexBlacklist] Invalid regex in rule "' . ($rule['name'] ?? '') . '": ' . $pattern);
                     continue 2; // skip this one bad pattern, keep checking the rule's other patterns
                 }
                 if ($result === 1) {
-                    return true;
+                    return [$field, $pattern];
                 }
             }
         }
 
-        return false;
+        return null;
     }
 
     /**
@@ -173,19 +191,74 @@ final class RegexBlacklistExtension extends Minz_Extension {
     }
 
     /**
-     * @return string[]
+     * @return array<string,string> Keyed by the specific field the text came from
+     *         ('title'/'content'/'author'), so a match can be attributed precisely
+     *         even when the rule's match_field is 'both'.
      */
     private function getHaystacks(FreshRSS_Entry $entry, string $matchField): array {
         switch ($matchField) {
             case 'title':
-                return [$entry->title()];
+                return ['title' => $entry->title()];
             case 'content':
-                return [substr($entry->content(), 0, self::MAX_MATCH_LENGTH)];
+                return ['content' => substr($entry->content(), 0, self::MAX_MATCH_LENGTH)];
             case 'author':
-                return [$entry->author()];
+                return ['author' => $entry->author()];
             default:
-                return [$entry->title(), substr($entry->content(), 0, self::MAX_MATCH_LENGTH)];
+                return [
+                    'title' => $entry->title(),
+                    'content' => substr($entry->content(), 0, self::MAX_MATCH_LENGTH),
+                ];
         }
+    }
+
+    /**
+     * Loads the blocked-article log (most recent first).
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    private function getLog(): array {
+        $raw = $this->getUserConfigurationString(self::LOG_KEY) ?? '[]';
+        $log = json_decode($raw, true);
+        return is_array($log) ? array_values($log) : [];
+    }
+
+    /**
+     * @param array<int,array<string,mixed>> $log
+     */
+    private function saveLog(array $log): void {
+        $this->setUserConfigurationValue(self::LOG_KEY, json_encode($log));
+    }
+
+    /**
+     * Prepends a blocked-article record to the log, capped at MAX_LOG_ENTRIES
+     * so the config value can't grow unbounded on a noisy blacklist.
+     *
+     * @param array<string,mixed> $rule
+     */
+    private function recordBlockedEntry(FreshRSS_Entry $entry, array $rule, string $matchedField, string $matchedPattern): void {
+        $title = $entry->title();
+        if (strlen($title) > self::MAX_LOG_TITLE_LENGTH) {
+            $title = substr($title, 0, self::MAX_LOG_TITLE_LENGTH) . '…';
+        }
+
+        $log = $this->getLog();
+        array_unshift($log, [
+            'time' => time(),
+            'rule_id' => $rule['id'] ?? '',
+            'rule_name' => $rule['name'] ?? '',
+            'feed_id' => $entry->feedId(),
+            'title' => $title,
+            'author' => $entry->author(),
+            'link' => method_exists($entry, 'link') ? $entry->link() : '',
+            'matched_field' => $matchedField,
+            'matched_pattern' => $matchedPattern,
+        ]);
+
+        if (count($log) > self::MAX_LOG_ENTRIES) {
+            $log = array_slice($log, 0, self::MAX_LOG_ENTRIES);
+        }
+
+        $this->saveLog($log);
     }
 
     /**
@@ -193,6 +266,12 @@ final class RegexBlacklistExtension extends Minz_Extension {
      */
     public function handleConfigureAction(): void {
         if (!Minz_Request::isPost()) {
+            return;
+        }
+
+        if (Minz_Request::paramString('clear_log') !== '') {
+            $this->saveLog([]);
+            Minz_Log::notice('[RegexBlacklist] Blocked-article log cleared');
             return;
         }
 

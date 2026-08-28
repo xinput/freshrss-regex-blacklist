@@ -11,6 +11,20 @@
 
 	$feeds = FreshRSS_Factory::createFeedDao()->listFeeds();
 
+	$feedNamesById = [];
+	foreach ($feeds as $feed) {
+		$feedNamesById[$feed->id()] = $feed->name();
+	}
+
+	$logJson = $this->getUserConfigurationString('log') ?? '[]';
+	$log = json_decode($logJson, true);
+	if (!is_array($log)) {
+		$log = [];
+	}
+	$log = array_values($log);
+
+	$matchFieldLabels = ['title' => 'Title', 'content' => 'Content', 'author' => 'Author'];
+
 	/**
 	 * Renders one rule as a self-contained card.
 	 * $index is either an int (existing rule) or the literal string
@@ -134,6 +148,67 @@
 			</div>
 		</div>
 	</form>
+
+	<fieldset>
+		<legend>Blocked Articles Log</legend>
+
+		<p class="help">
+			The last <?= count($log) ?> of up to <?= $this->getMaxLogEntries() ?> most recently blocked articles, newest first.
+			Use this to spot-check for false positives (legit articles wrongly blocked) or false negatives
+			(check a rule's <code>Blocked</code> counter above against how many of its entries you actually expect).
+		</p>
+
+		<?php if (empty($log)): ?>
+			<p><em>No articles have been blocked yet.</em></p>
+		<?php else: ?>
+			<div class="regex-blacklist-log-wrap">
+				<table class="regex-blacklist-log-table">
+					<thead>
+						<tr>
+							<th>Time</th>
+							<th>Rule</th>
+							<th>Feed</th>
+							<th>Matched Field</th>
+							<th>Matched Pattern</th>
+							<th>Article Title</th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php foreach ($log as $entry): ?>
+							<?php
+								$time = (int) ($entry['time'] ?? 0);
+								$feedId = (int) ($entry['feed_id'] ?? 0);
+								$feedName = $feedNamesById[$feedId] ?? ('Feed #' . $feedId);
+								$matchedField = (string) ($entry['matched_field'] ?? '');
+								$title = (string) ($entry['title'] ?? '');
+								$link = (string) ($entry['link'] ?? '');
+							?>
+							<tr>
+								<td><?= $time > 0 ? htmlspecialchars(date('Y-m-d H:i', $time), ENT_COMPAT, 'UTF-8') : '?' ?></td>
+								<td><?= htmlspecialchars((string) ($entry['rule_name'] ?? ''), ENT_COMPAT, 'UTF-8') ?></td>
+								<td><?= htmlspecialchars($feedName, ENT_COMPAT, 'UTF-8') ?></td>
+								<td><?= htmlspecialchars($matchFieldLabels[$matchedField] ?? $matchedField, ENT_COMPAT, 'UTF-8') ?></td>
+								<td><code><?= htmlspecialchars((string) ($entry['matched_pattern'] ?? ''), ENT_COMPAT, 'UTF-8') ?></code></td>
+								<td>
+									<?php if ($link !== ''): ?>
+										<a href="<?= htmlspecialchars($link, ENT_COMPAT, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($title, ENT_COMPAT, 'UTF-8') ?></a>
+									<?php else: ?>
+										<?= htmlspecialchars($title, ENT_COMPAT, 'UTF-8') ?>
+									<?php endif; ?>
+								</td>
+							</tr>
+						<?php endforeach; ?>
+					</tbody>
+				</table>
+			</div>
+
+			<form method="post" action="<?= _url('extension', 'configure', 'e', urlencode($this->getName())) ?>">
+				<input type="hidden" name="_csrf" value="<?= FreshRSS_Auth::csrfToken() ?>" />
+				<input type="hidden" name="clear_log" value="1" />
+				<button type="submit" class="btn" onclick="return confirm('Clear the entire blocked-articles log?');">Clear Log</button>
+			</form>
+		<?php endif; ?>
+	</fieldset>
 
 	<template id="regexBlacklistRowTemplate">
 		<?php $renderRuleCard(

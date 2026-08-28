@@ -4,6 +4,11 @@
 
 ### Added
 
+- Blocked Articles Log — every article blocked by a rule now records a
+  timestamped entry (rule, feed, which field/pattern matched, article title
+  and link) in the configuration UI, so you can audit for false
+  positives/negatives instead of trusting the per-rule counter alone. Capped
+  at the 200 most recent blocks; a "Clear Log" button resets it.
 - A rule's Regex Pattern field now accepts multiple patterns, one per line,
   matched with OR semantics — a rule matches if any of its lines match. An
   invalid line is skipped without disabling the rule's other lines.
