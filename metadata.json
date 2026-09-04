@@ -3,7 +3,7 @@
   "description": "Block articles from import using named regex rules, each scoped to a match field (title/content/author) and an optional feed",
   "version": "2.0.0",
   "entrypoint": "RegexBlacklist",
-  "author": "Your Name",
+  "author": "xinput",
   "license": "AGPL-3.0-or-later",
   "permissions": {
     "dom_access": false

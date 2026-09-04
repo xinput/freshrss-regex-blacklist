@@ -92,6 +92,27 @@
 			return;
 		}
 
+		var editBtn = event.target.closest('.regex-blacklist-edit-btn');
+		if (editBtn) {
+			var editRuleCard = editBtn.closest('.regex-blacklist-rule');
+			var body = editRuleCard ? editRuleCard.querySelector('.regex-blacklist-rule-body') : null;
+			var summary = editRuleCard ? editRuleCard.querySelector('.regex-blacklist-summary') : null;
+			if (body) {
+				body.hidden = !body.hidden;
+				editBtn.textContent = body.hidden ? 'Edit Rule' : 'Done';
+				if (summary) {
+					summary.hidden = !body.hidden;
+				}
+				if (!body.hidden) {
+					var patternField = body.querySelector('.regex-blacklist-pattern');
+					if (patternField) {
+						patternField.focus();
+					}
+				}
+			}
+			return;
+		}
+
 		var removeBtn = event.target.closest('.regex-blacklist-remove-btn');
 		if (removeBtn) {
 			var ruleToRemove = removeBtn.closest('.regex-blacklist-rule');

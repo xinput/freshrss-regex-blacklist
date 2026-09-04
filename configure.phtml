@@ -31,11 +31,18 @@
 	 * '__INDEX__' (blank card rendered once into the <template>, replaced
 	 * client-side by script.js on "Add Rule").
 	 *
+	 * $collapsed controls the initial state of the editable body: saved
+	 * rules render collapsed (name + summary only) so the rule list stays
+	 * scannable; the blank template card renders expanded since the user
+	 * just asked to add one and needs the fields right away.
+	 *
 	 * @param array<string,mixed> $rule
 	 * @param int|string $index
 	 * @param FreshRSS_Feed[] $feeds
 	 */
-	$renderRuleCard = function (array $rule, $index, array $feeds): void {
+	$renderRuleCard = function (array $rule, $index, array $feeds, bool $collapsed = true): void {
+		$matchFieldLabels = ['both' => 'Title + Content', 'title' => 'Title only', 'content' => 'Content only', 'author' => 'Author'];
+
 		$id = htmlspecialchars((string) ($rule['id'] ?? ''), ENT_COMPAT, 'UTF-8');
 		$name = htmlspecialchars((string) ($rule['name'] ?? ''), ENT_COMPAT, 'UTF-8');
 		$pattern = htmlspecialchars((string) ($rule['pattern'] ?? ''), ENT_COMPAT, 'UTF-8');
@@ -44,6 +51,14 @@
 		$enabled = (bool) ($rule['enabled'] ?? true);
 		$blockedCount = (int) ($rule['blocked_count'] ?? 0);
 		$idxAttr = htmlspecialchars((string) $index, ENT_COMPAT, 'UTF-8');
+
+		$patternLineCount = count(array_filter(array_map('trim', explode("\n", (string) ($rule['pattern'] ?? '')))));
+		$summaryParts = [
+			$matchFieldLabels[$matchField] ?? $matchField,
+			$patternLineCount . ' pattern' . ($patternLineCount === 1 ? '' : 's'),
+			count($feedIds) > 0 ? count($feedIds) . ' feed' . (count($feedIds) === 1 ? '' : 's') : 'All feeds',
+		];
+		$summary = htmlspecialchars(implode(' · ', $summaryParts), ENT_COMPAT, 'UTF-8');
 		?>
 		<div class="regex-blacklist-rule" data-index="<?= $idxAttr ?>">
 			<input type="hidden" name="rules[<?= $idxAttr ?>][id]" value="<?= $id ?>" />
@@ -61,55 +76,59 @@
 					placeholder="Rule name, e.g. Block sponsored posts"
 				/>
 				<span class="regex-blacklist-blocked-count" title="Articles blocked by this rule">Blocked: <?= $blockedCount ?></span>
+				<span class="regex-blacklist-summary" <?= $collapsed ? '' : 'hidden' ?>><?= $summary ?></span>
+				<button type="button" class="btn regex-blacklist-edit-btn"><?= $collapsed ? 'Edit Rule' : 'Done' ?></button>
 				<button type="button" class="btn regex-blacklist-remove-btn">Remove</button>
 			</div>
 
-			<div class="regex-blacklist-field">
-				<label>Regex Pattern(s) — one per line, matches if <em>any</em> line matches</label>
-				<div class="regex-blacklist-pattern-row">
-					<textarea
-						class="regex-blacklist-pattern"
-						name="rules[<?= $idxAttr ?>][pattern]"
-						rows="3"
-						placeholder="sponsor&#10;advert&#10;^\[AD\]"
-					><?= $pattern ?></textarea>
-					<button type="button" class="btn regex-blacklist-test-btn">Test</button>
+			<div class="regex-blacklist-rule-body" <?= $collapsed ? 'hidden' : '' ?>>
+				<div class="regex-blacklist-field">
+					<label>Regex Pattern(s) — one per line, matches if <em>any</em> line matches</label>
+					<div class="regex-blacklist-pattern-row">
+						<textarea
+							class="regex-blacklist-pattern"
+							name="rules[<?= $idxAttr ?>][pattern]"
+							rows="3"
+							placeholder="sponsor&#10;advert&#10;^\[AD\]"
+						><?= $pattern ?></textarea>
+						<button type="button" class="btn regex-blacklist-test-btn">Test</button>
+					</div>
 				</div>
-			</div>
 
-			<div class="regex-blacklist-scope-row">
-				<label class="regex-blacklist-scope-field">
-					Match
-					<select name="rules[<?= $idxAttr ?>][match_field]">
-						<option value="both" <?= $matchField === 'both' ? 'selected' : '' ?>>Title + Content</option>
-						<option value="title" <?= $matchField === 'title' ? 'selected' : '' ?>>Title only</option>
-						<option value="content" <?= $matchField === 'content' ? 'selected' : '' ?>>Content only</option>
-						<option value="author" <?= $matchField === 'author' ? 'selected' : '' ?>>Author</option>
-					</select>
-				</label>
-				<label class="regex-blacklist-scope-field">
-					Applies to Feed(s) — leave empty for all feeds
-					<select multiple class="regex-blacklist-feed-select" size="<?= max(3, min(6, count($feeds))) ?>">
-						<?php foreach ($feeds as $feed): ?>
-							<option value="<?= $feed->id() ?>" <?= in_array($feed->id(), $feedIds, true) ? 'selected' : '' ?>>
-								<?= htmlspecialchars($feed->name(), ENT_COMPAT, 'UTF-8') ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-					<input
-						type="hidden"
-						class="regex-blacklist-feed-ids"
-						name="rules[<?= $idxAttr ?>][feed_ids]"
-						value="<?= htmlspecialchars(implode(',', $feedIds), ENT_COMPAT, 'UTF-8') ?>"
-					/>
-				</label>
-			</div>
+				<div class="regex-blacklist-scope-row">
+					<label class="regex-blacklist-scope-field">
+						Match
+						<select name="rules[<?= $idxAttr ?>][match_field]">
+							<option value="both" <?= $matchField === 'both' ? 'selected' : '' ?>>Title + Content</option>
+							<option value="title" <?= $matchField === 'title' ? 'selected' : '' ?>>Title only</option>
+							<option value="content" <?= $matchField === 'content' ? 'selected' : '' ?>>Content only</option>
+							<option value="author" <?= $matchField === 'author' ? 'selected' : '' ?>>Author</option>
+						</select>
+					</label>
+					<label class="regex-blacklist-scope-field">
+						Applies to Feed(s) — leave empty for all feeds
+						<select multiple class="regex-blacklist-feed-select" size="<?= max(3, min(6, count($feeds))) ?>">
+							<?php foreach ($feeds as $feed): ?>
+								<option value="<?= $feed->id() ?>" <?= in_array($feed->id(), $feedIds, true) ? 'selected' : '' ?>>
+									<?= htmlspecialchars($feed->name(), ENT_COMPAT, 'UTF-8') ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+						<input
+							type="hidden"
+							class="regex-blacklist-feed-ids"
+							name="rules[<?= $idxAttr ?>][feed_ids]"
+							value="<?= htmlspecialchars(implode(',', $feedIds), ENT_COMPAT, 'UTF-8') ?>"
+						/>
+					</label>
+				</div>
 
-			<div class="regex-blacklist-tester" hidden>
-				<label>Sample text to test this pattern against</label>
-				<textarea class="regex-blacklist-sample" rows="2" placeholder="Paste a title or content snippet"></textarea>
-				<p class="regex-blacklist-test-result"></p>
-				<p class="help">Uses your browser's regex engine (JavaScript), a close approximation of PHP's PCRE — verify against real content if in doubt.</p>
+				<div class="regex-blacklist-tester" hidden>
+					<label>Sample text to test this pattern against</label>
+					<textarea class="regex-blacklist-sample" rows="2" placeholder="Paste a title or content snippet"></textarea>
+					<p class="regex-blacklist-test-result"></p>
+					<p class="help">Uses your browser's regex engine (JavaScript), a close approximation of PHP's PCRE — verify against real content if in doubt.</p>
+				</div>
 			</div>
 		</div>
 		<?php
@@ -152,61 +171,64 @@
 	<fieldset>
 		<legend>Blocked Articles Log</legend>
 
-		<p class="help">
-			The last <?= count($log) ?> of up to <?= $this->getMaxLogEntries() ?> most recently blocked articles, newest first.
-			Use this to spot-check for false positives (legit articles wrongly blocked) or false negatives
-			(check a rule's <code>Blocked</code> counter above against how many of its entries you actually expect).
-		</p>
-
 		<?php if (empty($log)): ?>
 			<p><em>No articles have been blocked yet.</em></p>
 		<?php else: ?>
-			<div class="regex-blacklist-log-wrap">
-				<table class="regex-blacklist-log-table">
-					<thead>
-						<tr>
-							<th>Time</th>
-							<th>Rule</th>
-							<th>Feed</th>
-							<th>Matched Field</th>
-							<th>Matched Pattern</th>
-							<th>Article Title</th>
-						</tr>
-					</thead>
-					<tbody>
-						<?php foreach ($log as $entry): ?>
-							<?php
-								$time = (int) ($entry['time'] ?? 0);
-								$feedId = (int) ($entry['feed_id'] ?? 0);
-								$feedName = $feedNamesById[$feedId] ?? ('Feed #' . $feedId);
-								$matchedField = (string) ($entry['matched_field'] ?? '');
-								$title = (string) ($entry['title'] ?? '');
-								$link = (string) ($entry['link'] ?? '');
-							?>
-							<tr>
-								<td><?= $time > 0 ? htmlspecialchars(date('Y-m-d H:i', $time), ENT_COMPAT, 'UTF-8') : '?' ?></td>
-								<td><?= htmlspecialchars((string) ($entry['rule_name'] ?? ''), ENT_COMPAT, 'UTF-8') ?></td>
-								<td><?= htmlspecialchars($feedName, ENT_COMPAT, 'UTF-8') ?></td>
-								<td><?= htmlspecialchars($matchFieldLabels[$matchedField] ?? $matchedField, ENT_COMPAT, 'UTF-8') ?></td>
-								<td><code><?= htmlspecialchars((string) ($entry['matched_pattern'] ?? ''), ENT_COMPAT, 'UTF-8') ?></code></td>
-								<td>
-									<?php if ($link !== ''): ?>
-										<a href="<?= htmlspecialchars($link, ENT_COMPAT, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($title, ENT_COMPAT, 'UTF-8') ?></a>
-									<?php else: ?>
-										<?= htmlspecialchars($title, ENT_COMPAT, 'UTF-8') ?>
-									<?php endif; ?>
-								</td>
-							</tr>
-						<?php endforeach; ?>
-					</tbody>
-				</table>
-			</div>
+			<details class="regex-blacklist-log-details">
+				<summary>Show log (<?= count($log) ?> of up to <?= $this->getMaxLogEntries() ?> most recently blocked articles)</summary>
 
-			<form method="post" action="<?= _url('extension', 'configure', 'e', urlencode($this->getName())) ?>">
-				<input type="hidden" name="_csrf" value="<?= FreshRSS_Auth::csrfToken() ?>" />
-				<input type="hidden" name="clear_log" value="1" />
-				<button type="submit" class="btn" onclick="return confirm('Clear the entire blocked-articles log?');">Clear Log</button>
-			</form>
+				<p class="help">
+					Newest first. Use this to spot-check for false positives (legit articles wrongly blocked) or false negatives
+					(check a rule's <code>Blocked</code> counter above against how many of its entries you actually expect).
+				</p>
+
+				<div class="regex-blacklist-log-wrap">
+					<table class="regex-blacklist-log-table">
+						<thead>
+							<tr>
+								<th>Time</th>
+								<th>Rule</th>
+								<th>Feed</th>
+								<th>Matched Field</th>
+								<th>Matched Pattern</th>
+								<th>Article Title</th>
+							</tr>
+						</thead>
+						<tbody>
+							<?php foreach ($log as $entry): ?>
+								<?php
+									$time = (int) ($entry['time'] ?? 0);
+									$feedId = (int) ($entry['feed_id'] ?? 0);
+									$feedName = $feedNamesById[$feedId] ?? ('Feed #' . $feedId);
+									$matchedField = (string) ($entry['matched_field'] ?? '');
+									$title = (string) ($entry['title'] ?? '');
+									$link = (string) ($entry['link'] ?? '');
+								?>
+								<tr>
+									<td><?= $time > 0 ? htmlspecialchars(date('Y-m-d H:i', $time), ENT_COMPAT, 'UTF-8') : '?' ?></td>
+									<td><?= htmlspecialchars((string) ($entry['rule_name'] ?? ''), ENT_COMPAT, 'UTF-8') ?></td>
+									<td><?= htmlspecialchars($feedName, ENT_COMPAT, 'UTF-8') ?></td>
+									<td><?= htmlspecialchars($matchFieldLabels[$matchedField] ?? $matchedField, ENT_COMPAT, 'UTF-8') ?></td>
+									<td><code><?= htmlspecialchars((string) ($entry['matched_pattern'] ?? ''), ENT_COMPAT, 'UTF-8') ?></code></td>
+									<td>
+										<?php if ($link !== ''): ?>
+											<a href="<?= htmlspecialchars($link, ENT_COMPAT, 'UTF-8') ?>" target="_blank" rel="noopener noreferrer"><?= htmlspecialchars($title, ENT_COMPAT, 'UTF-8') ?></a>
+										<?php else: ?>
+											<?= htmlspecialchars($title, ENT_COMPAT, 'UTF-8') ?>
+										<?php endif; ?>
+									</td>
+								</tr>
+							<?php endforeach; ?>
+						</tbody>
+					</table>
+				</div>
+
+				<form method="post" action="<?= _url('extension', 'configure', 'e', urlencode($this->getName())) ?>">
+					<input type="hidden" name="_csrf" value="<?= FreshRSS_Auth::csrfToken() ?>" />
+					<input type="hidden" name="clear_log" value="1" />
+					<button type="submit" class="btn" onclick="return confirm('Clear the entire blocked-articles log?');">Clear Log</button>
+				</form>
+			</details>
 		<?php endif; ?>
 	</fieldset>
 
@@ -214,7 +236,8 @@
 		<?php $renderRuleCard(
 			['id' => '', 'name' => '', 'pattern' => '', 'match_field' => 'both', 'feed_ids' => [], 'enabled' => true, 'blocked_count' => 0],
 			'__INDEX__',
-			$feeds
+			$feeds,
+			false
 		); ?>
 	</template>
 </div>

@@ -32,6 +32,20 @@
 	font-size: 0.9em;
 }
 
+.regex-blacklist-summary {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	opacity: 0.7;
+	font-size: 0.9em;
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.regex-blacklist-rule-body {
+	margin-top: 10px;
+}
+
 .regex-blacklist-field {
 	margin-bottom: 10px;
 }
@@ -138,4 +152,13 @@
 .regex-blacklist-log-table th {
 	white-space: nowrap;
 	opacity: 0.8;
+}
+
+.regex-blacklist-log-details > summary {
+	cursor: pointer;
+	font-weight: bold;
+}
+
+.regex-blacklist-log-details[open] > summary {
+	margin-bottom: 10px;
 }
