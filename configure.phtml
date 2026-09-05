@@ -77,8 +77,10 @@
 				/>
 				<span class="regex-blacklist-blocked-count" title="Articles blocked by this rule">Blocked: <?= $blockedCount ?></span>
 				<span class="regex-blacklist-summary" <?= $collapsed ? '' : 'hidden' ?>><?= $summary ?></span>
-				<button type="button" class="btn regex-blacklist-edit-btn"><?= $collapsed ? 'Edit Rule' : 'Done' ?></button>
-				<button type="button" class="btn regex-blacklist-remove-btn">Remove</button>
+				<div class="regex-blacklist-rule-actions">
+					<button type="button" class="btn regex-blacklist-edit-btn"><?= $collapsed ? 'Edit Rule' : 'Done' ?></button>
+					<button type="button" class="btn regex-blacklist-remove-btn">Remove</button>
+				</div>
 			</div>
 
 			<div class="regex-blacklist-rule-body" <?= $collapsed ? 'hidden' : '' ?>>
