@@ -1,0 +1,20 @@
+# Monthly update PRs. Nothing merges on its own: every PR runs CI, and a
+# red one is left for a manual fix.
+# Minor and patch updates come as one grouped PR per ecosystem. Major updates
+# come as separate PRs, so one breaking major cannot hold back the others.
+# Security updates are a separate repository setting and are not delayed by
+# this schedule.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
